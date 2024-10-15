@@ -1,6 +1,7 @@
 import cv2
+import time
+import datetime
 
-file_counter = 0
 
 # Open video capture
 cap = cv2.VideoCapture(0)
@@ -18,9 +19,12 @@ while True:
     if key == ord('q'):
         break
     elif key == ord('s'):
-        filename = f"obs_{file_counter}.jpg"
+        timestamp = time.time()
+
+        dt_object = datetime.datetime.fromtimestamp(timestamp)
+        formatted_time = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+        filename = f"obs_{formatted_time}.jpg"
         cv2.imwrite(filename, frame)
-        file_counter += 1
 
 cap.release()
 cv2.destroyAllWindows()
