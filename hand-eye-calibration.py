@@ -27,7 +27,9 @@ def euler_to_rotation_matrix(roll, pitch, yaw):
 def coords2vector(coords):
     t_vec = np.array(coords[:3]) / 1000
     roll, pitch, yaw = np.radians(np.array(coords[3:]))
-    R = euler_to_rotation_matrix()
+    print("ee t_vec:", t_vec)
+    print("ee r p y: ", np.degrees(roll), np.degrees(pitch), np.degrees(yaw))
+    R = euler_to_rotation_matrix(roll, pitch, yaw)
     return R, t_vec
 
 
@@ -110,9 +112,8 @@ while True:
 
     end_time = time.time()
     elapsed_time = end_time - start_time
-    text = f"time elapsed: {elapsed_time:.3f}s"
-
-    cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    
+    cv2.putText(frame, f"time elapsed: {elapsed_time:.3f}s", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
 
     # Display the frame with detected markers and pose axes
@@ -128,20 +129,17 @@ while True:
         filename = f"pose_{formatted_time}.jpg"
         cv2.imwrite(filename, frame)
     elif key == ord('c'):   # collect data
-        print(rvec, tvec)
-        print(rvec.shape, tvec.shape)
+        print("collecting data ", len(p1))
+
+        print(text)
         R_target2cam, _ = cv2.Rodrigues(rvec)
         t_target2cam = tvec.squeeze()
-        print(R_target2cam)
-        print(t_target2cam)
 
         # collect bot data
         coords = mc.get_coords()
-        print(coords)
+        print("coords: ", coords)
 
         R_gripper2base, t_gripper2base = coords2vector(coords)
-        print(R_gripper2base)
-        print(t_gripper2base)
 
         p1.append(R_gripper2base)
         p2.append(t_gripper2base)
