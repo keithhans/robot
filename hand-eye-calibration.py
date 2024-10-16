@@ -4,6 +4,54 @@ import time
 import datetime
 from pymycobot import MyCobot
 
+def euler_to_rotation_matrix(roll, pitch, yaw):
+    # 绕 Z 轴的旋转矩阵
+    R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                    [np.sin(yaw),  np.cos(yaw), 0],
+                    [0,            0,           1]])
+
+    # 绕 Y 轴的旋转矩阵
+    R_y = np.array([[ np.cos(pitch), 0, np.sin(pitch)],
+                    [0,            1, 0           ],
+                    [-np.sin(pitch), 0, np.cos(pitch)]])
+
+    # 绕 X 轴的旋转矩阵
+    R_x = np.array([[1, 0,            0           ],
+                    [0, np.cos(roll), -np.sin(roll)],
+                    [0, np.sin(roll),  np.cos(roll)]])
+
+    # 计算最终的旋转矩阵
+    R = R_z @ R_y @ R_x
+    return R
+
+def coords2vector(coords):
+    t_vec = np.array(coords[:3]) / 1000
+    roll, pitch, yaw = np.radians(np.array(coords[3:]))
+    R = euler_to_rotation_matrix()
+    return R, t_vec
+
+
+def rotation_vector_to_euler_angles(r_vec):
+    # 将旋转向量转换为旋转矩阵
+    R, _ = cv2.Rodrigues(r_vec)
+    
+    # 从旋转矩阵提取欧拉角（假设使用 ZYX 顺序）
+    sy = np.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])  # 计算 sy
+
+    singular = sy < 1e-6  # 判断是否接近奇异点
+
+    if not singular:
+        x_rotation = np.arctan2(R[2, 1], R[2, 2])  # Roll
+        y_rotation = np.arctan2(-R[2, 0], sy)       # Pitch
+        z_rotation = np.arctan2(R[1, 0], R[0, 0])   # Yaw
+    else:
+        x_rotation = np.arctan2(-R[1, 2], R[1, 1])
+        y_rotation = np.arctan2(-R[2, 0], sy)
+        z_rotation = 0
+
+    return np.degrees([x_rotation, y_rotation, z_rotation])  # 返回 Roll, Pitch, Yaw
+
+
 # Load the predefined dictionary
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 parameters = cv2.aruco.DetectorParameters()
@@ -22,6 +70,12 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
 # Initialize the MyCobot
 mc = MyCobot("/dev/ttyAMA0", 1000000)
+
+# Create empty lists to store the data
+p1 = []
+p2 = []
+p3 = []
+p4 = []
 
 while True:
     ret, frame = cap.read()
@@ -84,6 +138,32 @@ while True:
         # collect bot data
         coords = mc.get_coords()
         print(coords)
+
+        R_gripper2base, t_gripper2base = coords2vector(coords)
+        print(R_gripper2base)
+        print(t_gripper2base)
+
+        p1.append(R_gripper2base)
+        p2.append(t_gripper2base)
+        p3.append(R_target2cam)
+        p4.append(t_target2cam)
+    elif key == ord('r'):   # reset data
+        if len(p1) < 2:
+            print("not enough data")
+            continue
+        R, t = cv2.calibrateHandEye(p1, p2, p3, p4)
+        rvec, _ = cv2.Rodrigues(R)
+        roll, pitch, yaw = rotation_vector_to_euler_angles(rvec)
+
+        print("R:", R)
+        print("t:",t)
+
+        print("r p y: ",roll, pitch, yaw)
+
+        p1 = []
+        p2 = []
+        p3 = []
+        p4 = []
 
 
 cap.release()
