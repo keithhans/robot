@@ -4,7 +4,7 @@ import time
 import datetime
 from pymycobot import MyCobot
 
-def euler_to_rotation_matrix(roll, pitch, yaw):
+def euler_angles_to_rotation_matrix(roll, pitch, yaw):
     # 绕 Z 轴的旋转矩阵
     R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
                     [np.sin(yaw),  np.cos(yaw), 0],
@@ -29,14 +29,11 @@ def coords2vector(coords):
     roll, pitch, yaw = np.radians(np.array(coords[3:]))
     print("ee t_vec:", t_vec)
     print("ee r p y: ", np.degrees(roll), np.degrees(pitch), np.degrees(yaw))
-    R = euler_to_rotation_matrix(roll, pitch, yaw)
+    R = euler_angles_to_rotation_matrix(roll, pitch, yaw)
     return R, t_vec
 
 
-def rotation_vector_to_euler_angles(r_vec):
-    # 将旋转向量转换为旋转矩阵
-    R, _ = cv2.Rodrigues(r_vec)
-    
+def rotation_matrix_to_euler_angles(R):
     # 从旋转矩阵提取欧拉角（假设使用 ZYX 顺序）
     sy = np.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])  # 计算 sy
 
@@ -106,7 +103,8 @@ while True:
             # Display rvec and tvec values on the frame
             formatted_rvec = [f"{val:.3f}" for val in rvec[0][0]]
             formatted_tvec = [f"{val:.3f}" for val in tvec[0][0]]
-            roll, pitch, yaw = rotation_vector_to_euler_angles(rvec)
+            R, _ = cv2.Rodrigues(rvec)
+            roll, pitch, yaw = rotation_matrix_to_euler_angles(R)
             text = f"id: {marker_ids[i]}, tvec: {formatted_tvec}, rvec: {formatted_rvec}, r: {roll:.0f}, p: {pitch:.0f}, y: {yaw:.0f}"
             cv2.putText(frame, text, (10, 60+30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
@@ -150,12 +148,10 @@ while True:
             print("not enough data")
             continue
         R, t = cv2.calibrateHandEye(p1, p2, p3, p4)
-        rvec, _ = cv2.Rodrigues(R)
-        roll, pitch, yaw = rotation_vector_to_euler_angles(rvec)
-
-        print("R:", R)
+        roll, pitch, yaw = rotation_matrix_to_euler_angles(R)
+        
+        print("calibration results:")
         print("t:",t)
-
         print("r p y: ",roll, pitch, yaw)
 
         p1 = []
