@@ -104,9 +104,9 @@ while True:
             # Display rvec and tvec values on the frame
             formatted_rvec = [f"{val:.3f}" for val in rvec[0][0]]
             formatted_tvec = [f"{val:.3f}" for val in tvec[0][0]]
-            text = f"id: {marker_ids[i]}, tvec: {formatted_tvec}, rvec: {formatted_rvec}"
+            roll, pitch, yaw = rotation_vector_to_euler_angles(rvec)
+            text = f"id: {marker_ids[i]}, tvec: {formatted_tvec}, rvec: {formatted_rvec}, r: {roll:.0f}, p: {pitch:.0f}, y: {yaw:.0f}"
             cv2.putText(frame, text, (10, 60+30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
 
     end_time = time.time()
     elapsed_time = end_time - start_time
