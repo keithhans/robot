@@ -23,6 +23,8 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 # Initialize the MyCobot
 mc = MyCobot("/dev/ttyAMA0", 1000000)
 
+tracking = False
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -69,13 +71,19 @@ while True:
     if key == ord('q'):
         break
     elif key == ord('s'):
-        # start tracking
-        print("start tracking")
-        start_tvec = tvec.squeeze()
-        start_coods = mc.get_coords()
-        #R_target2cam, _ = cv2.Rodrigues(rvec)
-        #t_target2cam = tvec.squeeze()
-    elif key == ord('g'):   
+        if tracking:
+            print("stop tracking")
+            tracking = False
+        else:
+            # start tracking
+            print("start tracking")
+            start_tvec = tvec.squeeze()
+            start_coods = mc.get_coords()
+            tracking = True
+            #R_target2cam, _ = cv2.Rodrigues(rvec)
+            #t_target2cam = tvec.squeeze()
+
+    if tracking:
         # go to the target position
         print("go to target position")
         new_tvec = tvec.squeeze()
@@ -88,9 +96,7 @@ while True:
                      start_coods[5]]
         print("start_coods", start_coods)
         print("new coods", new_coods)
-        # mc.send_coords(new_tvec, 10, 1)
-        
-
+        mc.send_coords(new_coods, 10, 1)    
 
 cap.release()
 cv2.destroyAllWindows()
