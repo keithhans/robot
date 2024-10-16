@@ -3,6 +3,28 @@ import numpy as np
 import time
 import datetime
 
+
+def rotation_vector_to_euler_angles(r_vec):
+    # 将旋转向量转换为旋转矩阵
+    R, _ = cv2.Rodrigues(r_vec)
+    
+    # 从旋转矩阵提取欧拉角（假设使用 ZYX 顺序）
+    sy = np.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])  # 计算 sy
+
+    singular = sy < 1e-6  # 判断是否接近奇异点
+
+    if not singular:
+        x_rotation = np.arctan2(R[2, 1], R[2, 2])  # Roll
+        y_rotation = np.arctan2(-R[2, 0], sy)       # Pitch
+        z_rotation = np.arctan2(R[1, 0], R[0, 0])   # Yaw
+    else:
+        x_rotation = np.arctan2(-R[1, 2], R[1, 1])
+        y_rotation = np.arctan2(-R[2, 0], sy)
+        z_rotation = 0
+
+    return np.degrees([x_rotation, y_rotation, z_rotation])  # 返回 Roll, Pitch, Yaw
+
+
 # Load the predefined dictionary
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 parameters = cv2.aruco.DetectorParameters()
@@ -44,9 +66,10 @@ while True:
             cv2.drawFrameAxes(frame, camera_matrix, distortion_coeffs, rvec, tvec, 0.02)
 
             # Display rvec and tvec values on the frame
-            formatted_rvec = [f"{val:.3f}" for val in rvec[0][0]]
+            formatted_rvec = [f"{val:.2f}" for val in rvec[0][0]]
             formatted_tvec = [f"{val:.3f}" for val in tvec[0][0]]
-            text = f"id: {marker_ids[i]}, tvec: {formatted_tvec}, rvec: {formatted_rvec}"
+            roll, pitch, yaw = rotation_vector_to_euler_angles(rvec)
+            text = f"id: {marker_ids[i]}, tvec: {formatted_tvec}, rvec: {formatted_rvec}, r: {roll:.0f}, p: {pitch:.0f}, y: {yaw:.0f}"
             cv2.putText(frame, text, (10, 60+30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
 
