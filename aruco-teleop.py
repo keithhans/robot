@@ -83,7 +83,7 @@ def control_thread():
 
             # 发送滤波后的坐标
             mc.send_coords(filtered_coods, 20, 1)
-            print(start_time, " filtered coords sent:", filtered_coods)
+            print("coords sent", filtered_coods, " @", start_time)
             
     # 计算下一次调用的延迟
     elapsed_time = time.time() - start_time
