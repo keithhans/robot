@@ -173,9 +173,9 @@ while True:
         new_coods = [start_coods[0] + move_tvec[0] * 1000,
                      start_coods[1] + move_tvec[1] * 1000,
                      start_coods[2] + move_tvec[2] * 1000,
-                     start_coods[3],
-                     start_coods[4],
-                     start_coods[5]]
+                     start_coods[3] + new_angles[0],
+                     start_coods[4] + new_angles[1],
+                     start_coods[5] + new_angles[2]]
         print("start_coods", start_coods)
         print("new coods", new_coods)
         #mc.send_coords(new_coods, 20, 1)    
