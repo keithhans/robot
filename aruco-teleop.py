@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import time
+import datetime
 import threading
 from pymycobot import MyCobot
 from scipy.signal import butter, lfilter
@@ -57,9 +58,10 @@ def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
 
 lock = threading.Lock()
+quiting = False
 
 def control_thread():
-    global tracking, new_coods, mc, coord_buffers
+    global tracking, new_coods, mc, coord_buffers, quiting
 
     start_time = time.time()
     
@@ -101,7 +103,8 @@ def control_thread():
     delay = max(0, 0.1 - elapsed_time)  # 确保至少延迟100ms
 
     # 设置下一次调用
-    threading.Timer(delay, control_thread).start()
+    if not quiting:
+        threading.Timer(delay, control_thread).start()
 
 # camera to world
 roll_c2w = np.radians(-90)   # 以弧度表示的滚转 -90
@@ -138,6 +141,8 @@ mc = MyCobot("/dev/ttyAMA0", 1000000)
 tracking = False
 marker_ids = []
 
+coords_array = []
+
 # Start the control thread
 control_thread()
 
@@ -161,7 +166,7 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     elapsed_time = time.time() - start_time
-    print(f"image captured. time elapsed: {elapsed_time:.3f}s")
+    # print(f"image captured. time elapsed: {elapsed_time:.3f}s")
 
     # Detect markers in the frame
     marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(gray)
@@ -218,15 +223,22 @@ while True:
     cv2.imshow("Pose Estimation", frame)
 
     elapsed_time = time.time() - start_time
-    print(f"img shown. time elapsed: {elapsed_time:.3f}s")
+    #print(f"img shown. time elapsed: {elapsed_time:.3f}s")
 
     key = cv2.waitKey(1) & 0xFF
 
     if key == ord('q'):
+        quiting = True
         break
     elif key == ord('t'):
         if tracking:
             print("stop tracking")
+            dt_object = datetime.datetime.fromtimestamp(time.time())
+            formatted_time = dt_object.strftime('%Y-%m-%d-%H-%M-%S')
+            filename = f"records_{formatted_time}.npz"
+            np.savez(filename, coords_array = coords_array)
+            coords_array = []
+            print("wrote coords to file")
             tracking = False
         else:
             # start tracking
@@ -258,9 +270,10 @@ while True:
                         round(new_angles[1], 2),
                         round(new_angles[2], 2)]
         print("new coods", new_coods)
+        coords_array.append(new_coods)
     
     elapsed_time = time.time() - start_time
-    print(f"total time elapsed: {elapsed_time:.3f}s")
+    # print(f"total time elapsed: {elapsed_time:.3f}s")
 
 
 
