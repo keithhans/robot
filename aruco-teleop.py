@@ -3,6 +3,7 @@ import numpy as np
 import time
 import threading
 from pymycobot import MyCobot
+from scipy.signal import butter, lfilter
 
 def euler_angles_to_rotation_matrix(roll, pitch, yaw):
     # 绕 Z 轴的旋转矩阵
@@ -41,20 +42,46 @@ def rotation_matrix_to_euler_angles(R):
 
     return np.degrees([x_rotation, y_rotation, z_rotation])  # 返回 Roll, Pitch, Yaw
 
+def butter_lowpass(cutoff, fs, order=3):
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def apply_butter_lowpass_lfilter(data, cutoff, fs, order=3):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
 lock = threading.Lock()
 
 def control_thread():
-    global tracking, new_coods
-    global mc
+    global tracking, new_coods, mc, coord_buffers
 
     start_time = time.time()
-    #print("Control function called at", start_time)
     
-    # control task
     if tracking:
         with lock:
-            mc.send_coords(new_coods, 20, 1)
-            print(start_time, " new coords sent:", new_coods)
+            # 更新缓冲区
+            for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
+                coord_buffers[key].append(new_coods[i])
+                if len(coord_buffers[key]) > buffer_size:
+                    coord_buffers[key].pop(0)
+
+            # 应用滤波器
+            filtered_coods = []
+            for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']:
+                if len(coord_buffers[key]) == buffer_size:
+                    filtered_value = apply_butter_lowpass_lfilter(
+                        coord_buffers[key], cutoff_frequency, sampling_freq, filter_order
+                    )[-1]
+                    filtered_coods.append(round(filtered_value, 1))
+                else:
+                    filtered_coods.append(new_coods[['x', 'y', 'z', 'rx', 'ry', 'rz'].index(key)])
+
+            # 发送滤波后的坐标
+            mc.send_coords(filtered_coods, 20, 1)
+            print(start_time, " filtered coords sent:", filtered_coods)
             
     # 计算下一次调用的延迟
     elapsed_time = time.time() - start_time
@@ -102,6 +129,14 @@ marker_ids = []
 control_thread()
 
 last_time = time.time()
+
+sampling_freq = 10.0  # 假设的采样频率，根据实际情况调整
+cutoff_frequency = 2.0  # 截止频率 (Hz)
+filter_order = 3
+
+buffer_size = 20  # 根据需要调整缓冲区大小
+
+coord_buffers = {key: [] for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
 
 while True:
     start_time = time.time()
