@@ -78,6 +78,7 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 mc = MyCobot("/dev/ttyAMA0", 1000000)
 
 tracking = False
+marker_ids = []
 
 while True:
     ret, frame = cap.read()
@@ -98,7 +99,8 @@ while True:
     if marker_ids is not None:
         for i in range(len(marker_ids)):
             # Estimate pose of the marker
-            rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(marker_corners[i], 0.02, camera_matrix, distortion_coeffs)
+            marker_size = 0.04  # 0.02
+            rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(marker_corners[i], 0.04, camera_matrix, distortion_coeffs)
 
             R_target2cam, _ = cv2.Rodrigues(rvec)
             t_target2cam = tvec.squeeze()
@@ -142,16 +144,19 @@ while True:
 
     if key == ord('q'):
         break
-    elif key == ord('s'):
+    elif key == ord('t'):
         if tracking:
             print("stop tracking")
             tracking = False
         else:
             # start tracking
-            print("start tracking")
-            start_tvec = t_target2world
-            start_coods = mc.get_coords()
-            tracking = True
+            if marker_ids is None or len(marker_ids) == 0:
+                print("tracking can't start because no mark in sight")
+            else:     
+                print("start tracking")
+                start_tvec = t_target2world
+                start_coods = mc.get_coords()
+                tracking = True
 
     if tracking:
         # go to the target position
@@ -166,7 +171,8 @@ while True:
                      start_coods[5]]
         print("start_coods", start_coods)
         print("new coods", new_coods)
-        #mc.send_coords(new_coods, 10, 1)    
+        mc.send_coords(new_coods, 20, 1)    
+        #time.sleep(0.1) # wait for finish
 
 cap.release()
 cv2.destroyAllWindows()
