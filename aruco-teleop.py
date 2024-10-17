@@ -54,6 +54,9 @@ def apply_butter_lowpass_lfilter(data, cutoff, fs, order=3):
     y = lfilter(b, a, data)
     return y
 
+def clamp(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
+
 lock = threading.Lock()
 quiting = False
 
@@ -72,14 +75,24 @@ def control_thread():
 
             # 应用滤波器
             filtered_coods = []
-            for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']:
+            for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
                 if len(coord_buffers[key]) == buffer_size:
                     filtered_value = apply_butter_lowpass_lfilter(
                         coord_buffers[key], cutoff_frequency, sampling_freq, filter_order
                     )[-1]
+                    # 对 x, y, z 和 rx, ry, rz 分别进行限制
+                    if i < 3:  # x, y, z
+                        filtered_value = clamp(filtered_value, -280, 280)
+                    else:  # rx, ry, rz
+                        filtered_value = clamp(filtered_value, -180, 180)
                     filtered_coods.append(round(filtered_value, 1))
                 else:
-                    filtered_coods.append(new_coods[['x', 'y', 'z', 'rx', 'ry', 'rz'].index(key)])
+                    filtered_value = new_coods[i]
+                    if i < 3:  # x, y, z
+                        filtered_value = clamp(filtered_value, -280, 280)
+                    else:  # rx, ry, rz
+                        filtered_value = clamp(filtered_value, -180, 180)
+                    filtered_coods.append(filtered_value)
 
             # 发送滤波后的坐标
             mc.send_coords(filtered_coods, 20, 1)
