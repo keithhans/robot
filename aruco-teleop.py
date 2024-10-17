@@ -155,7 +155,10 @@ while True:
             else:     
                 print("start tracking")
                 start_tvec = t_target2world
+                start_rMat = R_target2world
                 start_coods = mc.get_coords()
+                origin_angles = np.array(start_coods[3:6])
+                origin_rMat = euler_angles_to_rotation_matrix(start_coods[3], start_coods[4], start_coods[5])
                 tracking = True
 
     if tracking:
@@ -163,6 +166,10 @@ while True:
         print("go to target position")
         new_tvec = t_target2world
         move_tvec = new_tvec - start_tvec
+        new_rMat = R_target2world
+        delta_r_Mat = new_rMat @ np.linalg.inv(start_rMat)
+        final_r_Mat = delta_r_Mat @ origin_rMat
+        new_angles = rotation_matrix_to_euler_angles(final_r_Mat)
         new_coods = [start_coods[0] + move_tvec[0] * 1000,
                      start_coods[1] + move_tvec[1] * 1000,
                      start_coods[2] + move_tvec[2] * 1000,
@@ -171,7 +178,7 @@ while True:
                      start_coods[5]]
         print("start_coods", start_coods)
         print("new coods", new_coods)
-        mc.send_coords(new_coods, 20, 1)    
+        #mc.send_coords(new_coods, 20, 1)    
         #time.sleep(0.1) # wait for finish
 
 cap.release()
