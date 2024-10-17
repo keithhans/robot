@@ -60,21 +60,31 @@ def clamp(value, min_value, max_value):
 lock = threading.Lock()
 quiting = False
 
+# 在全局变量区域添加一个新的列表来存储过滤后的坐标
+filtered_coords_array = []
+
+# 在全局变量区域添加新的变量
+coords_array = []
+new_coords = None
+
 def control_thread():
-    global tracking, new_coods, mc, coord_buffers, quiting
+    global tracking, new_coords, mc, coord_buffers, quiting, filtered_coords_array, coords_array
 
     start_time = time.time()
     
-    if tracking:
+    if tracking and new_coords is not None:
         with lock:
+            # 保存原始坐标
+            coords_array.append(new_coords)
+
             # 更新缓冲区
             for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
-                coord_buffers[key].append(new_coods[i])
+                coord_buffers[key].append(new_coords[i])
                 if len(coord_buffers[key]) > buffer_size:
                     coord_buffers[key].pop(0)
 
             # 应用滤波器
-            filtered_coods = []
+            filtered_coords = []
             for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
                 if len(coord_buffers[key]) == buffer_size:
                     filtered_value = apply_butter_lowpass_lfilter(
@@ -84,19 +94,22 @@ def control_thread():
                     if i < 3:  # x, y, z
                         filtered_value = clamp(filtered_value, -280, 280)
                     else:  # rx, ry, rz
-                        filtered_value = clamp(filtered_value, -180, 180)
-                    filtered_coods.append(round(filtered_value, 1))
+                        filtered_value = clamp(filtered_value, -179.9, 179.9)
+                    filtered_coords.append(round(filtered_value, 1))
                 else:
-                    filtered_value = new_coods[i]
+                    filtered_value = new_coords[i]
                     if i < 3:  # x, y, z
                         filtered_value = clamp(filtered_value, -280, 280)
                     else:  # rx, ry, rz
-                        filtered_value = clamp(filtered_value, -180, 180)
-                    filtered_coods.append(filtered_value)
+                        filtered_value = clamp(filtered_value, -179.9, 179.9)
+                    filtered_coords.append(filtered_value)
 
             # 发送滤波后的坐标
-            mc.send_coords(filtered_coods, 20, 1)
-            print("coords sent", filtered_coods, " @", start_time)
+            mc.send_coords(filtered_coords, 20, 1)
+            print("coords sent", filtered_coords, " @", start_time)
+            
+            # 保存过滤后的坐标
+            filtered_coords_array.append(filtered_coords)
             
     # 计算下一次调用的延迟
     elapsed_time = time.time() - start_time
@@ -236,8 +249,9 @@ while True:
             dt_object = datetime.datetime.fromtimestamp(time.time())
             formatted_time = dt_object.strftime('%Y-%m-%d-%H-%M-%S')
             filename = f"records_{formatted_time}.npz"
-            np.savez(filename, coords_array = coords_array)
+            np.savez(filename, coords_array=coords_array, filtered_coords_array=filtered_coords_array)
             coords_array = []
+            filtered_coords_array = []  # 清空过滤后的坐标数组
             print("wrote coords to file")
             tracking = False
         else:
@@ -248,10 +262,10 @@ while True:
                 print("start tracking")
                 start_tvec = t_target2world
                 start_rMat = R_target2world
-                start_coods = mc.get_coords()
-                print("start_coods", start_coods)
-                origin_angles = np.array(start_coods[3:6])
-                origin_rMat = euler_angles_to_rotation_matrix(np.radians(start_coods[3]), np.radians(start_coods[4]), np.radians(start_coods[5]))
+                start_coords = mc.get_coords()
+                print("start_coords", start_coords)
+                origin_angles = np.array(start_coords[3:6])
+                origin_rMat = euler_angles_to_rotation_matrix(np.radians(start_coords[3]), np.radians(start_coords[4]), np.radians(start_coords[5]))
                 tracking = True
 
     if tracking:
@@ -263,14 +277,14 @@ while True:
         final_r_Mat = delta_r_Mat @ origin_rMat
         new_angles = rotation_matrix_to_euler_angles(final_r_Mat)
         with lock:
-            new_coods = [start_coods[0] + round(move_tvec[0] * 1000, 1),
-                        start_coods[1] + round(move_tvec[1] * 1000, 1),
-                        start_coods[2] + round(move_tvec[2] * 1000, 1),
+            new_coords = [start_coords[0] + round(move_tvec[0] * 1000, 1),
+                        start_coords[1] + round(move_tvec[1] * 1000, 1),
+                        start_coords[2] + round(move_tvec[2] * 1000, 1),
                         round(new_angles[0], 2),
                         round(new_angles[1], 2),
                         round(new_angles[2], 2)]
-        print("new coods", new_coods)
-        coords_array.append(new_coods)
+        print("new coords", new_coords)
+        # 移除这行: coords_array.append(new_coords)
     
     elapsed_time = time.time() - start_time
     # print(f"total time elapsed: {elapsed_time:.3f}s")
