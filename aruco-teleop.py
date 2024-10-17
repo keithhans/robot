@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import time
-import datetime
 from pymycobot import MyCobot
 
 def euler_angles_to_rotation_matrix(roll, pitch, yaw):
@@ -46,12 +45,8 @@ roll_c2w = np.radians(-90)   # 以弧度表示的滚转 -90
 pitch_c2w = np.radians(0)  # 以弧度表示的俯仰
 yaw_c2w = np.radians(180)   # 以弧度表示的偏航 180
 
-# 得到相机在世界坐标系中的旋转矩阵
 R_cam2world = euler_angles_to_rotation_matrix(roll_c2w, pitch_c2w, yaw_c2w)
 
-print(R_cam2world)
-
-# camera to world
 x = 0.5
 y = 0.3
 z = 0.3
@@ -82,13 +77,16 @@ marker_ids = []
 last_time = time.time()
 
 while True:
+    start_time = time.time()
+
     ret, frame = cap.read()
     if not ret:
         break
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    start_time = time.time()
+    elapsed_time = time.time() - start_time
+    print(f"image captured. time elapsed: {elapsed_time:.3f}s")
 
     # Detect markers in the frame
     marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(gray)
@@ -137,11 +135,15 @@ while True:
     text = f"time elapsed: {elapsed_time:.3f}s  total time:{total_time:.3f}s"
     last_time = end_time
 
+
     cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
 
     # Display the frame with detected markers and pose axes
     cv2.imshow("Pose Estimation", frame)
+
+    elapsed_time = time.time() - start_time
+    print(f"img shown. time elapsed: {elapsed_time:.3f}s")
 
     key = cv2.waitKey(1) & 0xFF
 
@@ -182,6 +184,12 @@ while True:
         print("new coods", new_coods)
         mc.send_coords(new_coods, 20, 1)    
         #time.sleep(0.1) # wait for finish
+
+    
+    elapsed_time = time.time() - start_time
+    print(f"total time elapsed: {elapsed_time:.3f}s")
+
+
 
 cap.release()
 cv2.destroyAllWindows()
