@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import time
+import threading
 from pymycobot import MyCobot
 
 def euler_angles_to_rotation_matrix(roll, pitch, yaw):
@@ -40,6 +41,28 @@ def rotation_matrix_to_euler_angles(R):
 
     return np.degrees([x_rotation, y_rotation, z_rotation])  # 返回 Roll, Pitch, Yaw
 
+lock = threading.Lock()
+
+def control_thread():
+    global tracking, new_coods
+    global mc
+
+    start_time = time.time()
+    #print("Control function called at", start_time)
+    
+    # control task
+    if tracking:
+        with lock:
+            mc.send_coords(new_coods, 20, 1)
+            print(start_time, " new coords sent:", new_coods)
+            
+    # 计算下一次调用的延迟
+    elapsed_time = time.time() - start_time
+    delay = max(0, 0.1 - elapsed_time)  # 确保至少延迟100ms
+
+    # 设置下一次调用
+    threading.Timer(delay, control_thread).start()
+
 # camera to world
 roll_c2w = np.radians(-90)   # 以弧度表示的滚转 -90
 pitch_c2w = np.radians(0)  # 以弧度表示的俯仰
@@ -74,6 +97,10 @@ mc = MyCobot("/dev/ttyAMA0", 1000000)
 
 tracking = False
 marker_ids = []
+
+# Start the control thread
+control_thread()
+
 last_time = time.time()
 
 while True:
@@ -175,16 +202,14 @@ while True:
         delta_r_Mat = new_rMat @ np.linalg.inv(start_rMat)
         final_r_Mat = delta_r_Mat @ origin_rMat
         new_angles = rotation_matrix_to_euler_angles(final_r_Mat)
-        new_coods = [start_coods[0] + round(move_tvec[0] * 1000, 1),
-                     start_coods[1] + round(move_tvec[1] * 1000, 1),
-                     start_coods[2] + round(move_tvec[2] * 1000, 1),
-                     round(new_angles[0], 2),
-                     round(new_angles[1], 2),
-                     round(new_angles[2], 2)]
+        with lock:
+            new_coods = [start_coods[0] + round(move_tvec[0] * 1000, 1),
+                        start_coods[1] + round(move_tvec[1] * 1000, 1),
+                        start_coods[2] + round(move_tvec[2] * 1000, 1),
+                        round(new_angles[0], 2),
+                        round(new_angles[1], 2),
+                        round(new_angles[2], 2)]
         print("new coods", new_coods)
-        mc.send_coords(new_coods, 20, 1)    
-        #time.sleep(0.1) # wait for finish
-
     
     elapsed_time = time.time() - start_time
     print(f"total time elapsed: {elapsed_time:.3f}s")
