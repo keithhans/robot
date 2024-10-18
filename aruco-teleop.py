@@ -70,7 +70,7 @@ new_coords = None
 
 def control_thread():
     global tracking, new_coords, mc, coord_buffers, quiting, filtered_coords_array, coords_array, cutoff_frequency
-
+    
     start_time = time.time()
     
     if tracking and new_coords is not None:
@@ -164,7 +164,6 @@ coords_array = []
 # Start the control thread
 control_thread()
 
-last_time = time.time()
 
 sampling_freq = 10.0  # 假设的采样频率，根据实际情况调整
 cutoff_frequency = 2.0  # 截止频率 (Hz)
@@ -175,7 +174,9 @@ buffer_size = 20  # 根据需要调整缓冲区大小
 coord_buffers = {key: [] for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
 
 def main():
-    global cutoff_frequency
+    global cutoff_frequency, tracking, coords_array, filtered_coords_array, new_coords, quiting
+
+    last_time = time.time()
 
     parser = argparse.ArgumentParser(description='ArUco marker based robot control')
     parser.add_argument('-f', '--filter', type=float, default=2.0, help='Cutoff frequency for the low-pass filter (Hz). Set to 0 to disable filtering.')
