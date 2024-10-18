@@ -46,12 +46,13 @@ def apply_butter_lowpass_filter_python(data, b, a):
 
     return y[-1]
 
-def online_filter(data, cutoff, fs, buffer_size=20, use_scipy=False):
+def online_filter(data, cutoff, fs, buffer_size=20, use_scipy=False, use_zi=False):
     filtered_data = np.zeros_like(data)
     buffer = []
     b, a = butter_lowpass_scipy(cutoff, fs) if use_scipy else butter_lowpass_python(cutoff, fs)
     
-    if use_scipy:
+    zi = None
+    if use_scipy and use_zi:
         zi = signal.lfilter_zi(b, a)
         zi = zi * data[0]  # 使用信号的第一个值初始化zi
     
@@ -62,7 +63,10 @@ def online_filter(data, cutoff, fs, buffer_size=20, use_scipy=False):
         
         if len(buffer) == buffer_size:
             if use_scipy:
-                filtered_value, zi = signal.lfilter(b, a, buffer, zi=zi)
+                if use_zi and zi is not None:
+                    filtered_value, zi = signal.lfilter(b, a, buffer, zi=zi)
+                else:
+                    filtered_value = signal.lfilter(b, a, buffer)
                 filtered_value = filtered_value[-1]
             else:
                 filtered_value = apply_butter_lowpass_filter_python(buffer, b, a)
@@ -73,7 +77,7 @@ def online_filter(data, cutoff, fs, buffer_size=20, use_scipy=False):
     
     return filtered_data
 
-def plot_coordinates(coords_array, filtered_coords_array, max_points=200, extra_filter_freq=None, use_scipy=False):
+def plot_coordinates(coords_array, filtered_coords_array, max_points=200, extra_filter_freq=None, use_scipy=False, use_zi=False):
     num_points = min(len(coords_array), max_points)
     
     fig, axs = plt.subplots(3, 2, figsize=(15, 15))
@@ -102,7 +106,7 @@ def plot_coordinates(coords_array, filtered_coords_array, max_points=200, extra_
         axs[row, col].plot(filtered_data, label='Filtered', alpha=0.7)
         
         if extra_filter_freq:
-            extra_filtered = online_filter(original_data, cutoff=extra_filter_freq, fs=sampling_freq, use_scipy=use_scipy)
+            extra_filtered = online_filter(original_data, cutoff=extra_filter_freq, fs=sampling_freq, use_scipy=use_scipy, use_zi=use_zi)
             axs[row, col].plot(extra_filtered, label=f'Filtered ({extra_filter_freq}Hz)', alpha=0.7)
         
         axs[row, col].set_title(f'{label.upper()} Coordinate')
@@ -120,6 +124,7 @@ def main():
     parser.add_argument('-f', '--filter', type=float, help='Additional filter frequency (Hz)')
     parser.add_argument('-m', '--max_points', type=int, default=200, help='Maximum number of points to display')
     parser.add_argument('-s', '--scipy', action='store_true', help='Use SciPy for both filter design and application')
+    parser.add_argument('-i', '--init_zi', action='store_true', help='Use lfilter_zi for initialization')
     args = parser.parse_args()
 
     try:
@@ -134,7 +139,8 @@ def main():
         print("Error: The shapes of original and filtered coordinate arrays do not match.", coords_array.shape, filtered_coords_array.shape)
         sys.exit(1)
 
-    plot_coordinates(coords_array, filtered_coords_array, max_points=args.max_points, extra_filter_freq=args.filter, use_scipy=args.scipy)
+    plot_coordinates(coords_array, filtered_coords_array, max_points=args.max_points, 
+                     extra_filter_freq=args.filter, use_scipy=args.scipy, use_zi=args.init_zi)
 
 if __name__ == "__main__":
     main()
