@@ -74,10 +74,11 @@ def control_thread():
     global tracking, new_coords, mc, coord_buffers, quiting, filtered_coords_array, coords_array, cutoff_frequency
     
     start_time = time.time()
-    
-    # 为每个坐标分量初始化zi
-    zi = {key: None for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
-    b, a = butter_lowpass(cutoff_frequency, sampling_freq, filter_order)
+   
+    if cutoff_frequency > 0:
+        # 为每个坐标分量初始化zi
+        zi = {key: None for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
+        b, a = butter_lowpass(cutoff_frequency, sampling_freq, filter_order)
     
     while not quiting:
         if tracking and new_coords is not None:
@@ -177,8 +178,7 @@ buffer_size = 20  # 根据需要调整缓冲区大小
 
 coord_buffers = {key: [] for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
 
-# Start the control thread
-control_thread()
+
 
 def main():
     global cutoff_frequency, tracking, coords_array, filtered_coords_array, new_coords, quiting
@@ -191,6 +191,10 @@ def main():
 
     cutoff_frequency = args.filter
 
+    # Start the control thread
+    threading.Thread(target=control_thread).start()
+
+    # Start the main loop
     while True:
         start_time = time.time()
 
