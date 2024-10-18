@@ -4,7 +4,7 @@ import time
 import datetime
 import threading
 from pymycobot import MyCobot
-from scipy.signal import butter, lfilter
+from scipy.signal import butter, lfilter, lfilter_zi
 import argparse
 
 def euler_angles_to_rotation_matrix(roll, pitch, yaw):
@@ -52,8 +52,10 @@ def butter_lowpass(cutoff, fs, order=3):
 
 def apply_butter_lowpass_lfilter(data, cutoff, fs, order=3):
     b, a = butter_lowpass(cutoff, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
+    zi = lfilter_zi(b, a)
+    zi = zi * data[0]  # 使用信号的第一个值初始化zi
+    y, _ = lfilter(b, a, data, zi=zi)
+    return y[-1]
 
 def clamp(value, min_value, max_value):
     return max(min(value, max_value), min_value)
@@ -73,56 +75,61 @@ def control_thread():
     
     start_time = time.time()
     
-    if tracking and new_coords is not None:
-        with lock:
-            # 保存原始坐标
-            coords_array.append(new_coords)
+    # 为每个坐标分量初始化zi
+    zi = {key: None for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
+    b, a = butter_lowpass(cutoff_frequency, sampling_freq, filter_order)
+    
+    while not quiting:
+        if tracking and new_coords is not None:
+            with lock:
+                # 保存原始坐标
+                coords_array.append(new_coords)
 
-            if cutoff_frequency > 0:
-                # 更新缓冲区
-                for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
-                    coord_buffers[key].append(new_coords[i])
-                    if len(coord_buffers[key]) > buffer_size:
-                        coord_buffers[key].pop(0)
+                if cutoff_frequency > 0:
+                    # 更新缓冲区
+                    filtered_coords = []
+                    for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
+                        coord_buffers[key].append(new_coords[i])
+                        if len(coord_buffers[key]) > buffer_size:
+                            coord_buffers[key].pop(0)
 
-                # 应用滤波器
-                filtered_coords = []
-                for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
-                    if len(coord_buffers[key]) == buffer_size:
-                        filtered_value = apply_butter_lowpass_lfilter(
-                            coord_buffers[key], cutoff_frequency, sampling_freq, filter_order
-                        )[-1]
-                        # 对 x, y, z 和 rx, ry, rz 分别进行限制
-                        if i < 3:  # x, y, z
-                            filtered_value = clamp(filtered_value, -280, 280)
-                        else:  # rx, ry, rz
-                            filtered_value = clamp(filtered_value, -179.9, 179.9)
-                        filtered_coords.append(round(filtered_value, 1))
-                    else:
-                        filtered_value = new_coords[i]
-                        if i < 3:  # x, y, z
-                            filtered_value = clamp(filtered_value, -280, 280)
-                        else:  # rx, ry, rz
-                            filtered_value = clamp(filtered_value, -179.9, 179.9)
-                        filtered_coords.append(filtered_value)
-            else:
-                # 如果 cutoff_frequency 为 0，直接使用原始坐标
-                filtered_coords = [clamp(val, -280 if i < 3 else -179.9, 280 if i < 3 else 179.9) for i, val in enumerate(new_coords)]
+                        if len(coord_buffers[key]) == buffer_size:
+                            if zi[key] is None:
+                                zi[key] = lfilter_zi(b, a)
+                                zi[key] = zi[key] * coord_buffers[key][0]
+                            
+                            filtered_value, zi[key] = lfilter(b, a, coord_buffers[key], zi=zi[key])
+                            filtered_value = filtered_value[-1]
+                            
+                            # 对 x, y, z 和 rx, ry, rz 分别进行限制
+                            if i < 3:  # x, y, z
+                                filtered_value = clamp(filtered_value, -280, 280)
+                            else:  # rx, ry, rz
+                                filtered_value = clamp(filtered_value, -179.9, 179.9)
+                            filtered_coords.append(round(filtered_value, 1))
+                        else:
+                            filtered_value = new_coords[i]
+                            if i < 3:  # x, y, z
+                                filtered_value = clamp(filtered_value, -280, 280)
+                            else:  # rx, ry, rz
+                                filtered_value = clamp(filtered_value, -179.9, 179.9)
+                            filtered_coords.append(filtered_value)
+                else:
+                    # 如果 cutoff_frequency 为 0，直接使用原始坐标
+                    filtered_coords = [clamp(val, -280 if i < 3 else -179.9, 280 if i < 3 else 179.9) for i, val in enumerate(new_coords)]
 
-            # 发送坐标
-            mc.send_coords(filtered_coords, 20, 1)
-            print("coords sent", filtered_coords, " @", start_time)
-            
-            # 保存过滤后的坐标
-            filtered_coords_array.append(filtered_coords)
-            
-    # 计算下一次调用的延迟
-    elapsed_time = time.time() - start_time
-    delay = max(0, 0.1 - elapsed_time)  # 确保至少延迟100ms
-
-    # 设置下一次调用
-    if not quiting:
-        threading.Timer(delay, control_thread).start()
+                # 发送坐标
+                mc.send_coords(filtered_coords, 20, 1)
+                print("coords sent", filtered_coords, " @", start_time)
+                
+                # 保存过滤后的坐标
+                filtered_coords_array.append(filtered_coords)
+        
+        # 计算下一次调用的延迟
+        elapsed_time = time.time() - start_time
+        delay = max(0, 0.1 - elapsed_time)  # 确保至少延迟100ms
+        time.sleep(delay)
+        start_time = time.time()
 
 # camera to world
 roll_c2w = np.radians(-90)   # 以弧度表示的滚转 -90

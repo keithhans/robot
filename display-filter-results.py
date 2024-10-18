@@ -51,6 +51,10 @@ def online_filter(data, cutoff, fs, buffer_size=20, use_scipy=False):
     buffer = []
     b, a = butter_lowpass_scipy(cutoff, fs) if use_scipy else butter_lowpass_python(cutoff, fs)
     
+    if use_scipy:
+        zi = signal.lfilter_zi(b, a)
+        zi = zi * data[0]  # 使用信号的第一个值初始化zi
+    
     for i, value in enumerate(data):
         buffer.append(value)
         if len(buffer) > buffer_size:
@@ -58,7 +62,8 @@ def online_filter(data, cutoff, fs, buffer_size=20, use_scipy=False):
         
         if len(buffer) == buffer_size:
             if use_scipy:
-                filtered_value = signal.lfilter(b, a, buffer)[-1]
+                filtered_value, zi = signal.lfilter(b, a, buffer, zi=zi)
+                filtered_value = filtered_value[-1]
             else:
                 filtered_value = apply_butter_lowpass_filter_python(buffer, b, a)
         else:
