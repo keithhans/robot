@@ -68,7 +68,7 @@ def main():
         sys.exit(1)
 
     if coords_array.shape != filtered_coords_array.shape:
-        print("Error: The shapes of original and filtered coordinate arrays do not match.")
+        print("Error: The shapes of original and filtered coordinate arrays do not match.", coords_array.shape, filtered_coords_array.shape)
         sys.exit(1)
 
     plot_coordinates(coords_array, filtered_coords_array, max_points=args.max_points, extra_filter_freq=args.filter)
