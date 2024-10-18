@@ -5,6 +5,7 @@ import datetime
 import threading
 from pymycobot import MyCobot
 from scipy.signal import butter, lfilter
+import argparse
 
 def euler_angles_to_rotation_matrix(roll, pitch, yaw):
     # 绕 Z 轴的旋转矩阵
@@ -68,7 +69,7 @@ coords_array = []
 new_coords = None
 
 def control_thread():
-    global tracking, new_coords, mc, coord_buffers, quiting, filtered_coords_array, coords_array
+    global tracking, new_coords, mc, coord_buffers, quiting, filtered_coords_array, coords_array, cutoff_frequency
 
     start_time = time.time()
     
@@ -77,34 +78,38 @@ def control_thread():
             # 保存原始坐标
             coords_array.append(new_coords)
 
-            # 更新缓冲区
-            for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
-                coord_buffers[key].append(new_coords[i])
-                if len(coord_buffers[key]) > buffer_size:
-                    coord_buffers[key].pop(0)
+            if cutoff_frequency > 0:
+                # 更新缓冲区
+                for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
+                    coord_buffers[key].append(new_coords[i])
+                    if len(coord_buffers[key]) > buffer_size:
+                        coord_buffers[key].pop(0)
 
-            # 应用滤波器
-            filtered_coords = []
-            for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
-                if len(coord_buffers[key]) == buffer_size:
-                    filtered_value = apply_butter_lowpass_lfilter(
-                        coord_buffers[key], cutoff_frequency, sampling_freq, filter_order
-                    )[-1]
-                    # 对 x, y, z 和 rx, ry, rz 分别进行限制
-                    if i < 3:  # x, y, z
-                        filtered_value = clamp(filtered_value, -280, 280)
-                    else:  # rx, ry, rz
-                        filtered_value = clamp(filtered_value, -179.9, 179.9)
-                    filtered_coords.append(round(filtered_value, 1))
-                else:
-                    filtered_value = new_coords[i]
-                    if i < 3:  # x, y, z
-                        filtered_value = clamp(filtered_value, -280, 280)
-                    else:  # rx, ry, rz
-                        filtered_value = clamp(filtered_value, -179.9, 179.9)
-                    filtered_coords.append(filtered_value)
+                # 应用滤波器
+                filtered_coords = []
+                for i, key in enumerate(['x', 'y', 'z', 'rx', 'ry', 'rz']):
+                    if len(coord_buffers[key]) == buffer_size:
+                        filtered_value = apply_butter_lowpass_lfilter(
+                            coord_buffers[key], cutoff_frequency, sampling_freq, filter_order
+                        )[-1]
+                        # 对 x, y, z 和 rx, ry, rz 分别进行限制
+                        if i < 3:  # x, y, z
+                            filtered_value = clamp(filtered_value, -280, 280)
+                        else:  # rx, ry, rz
+                            filtered_value = clamp(filtered_value, -179.9, 179.9)
+                        filtered_coords.append(round(filtered_value, 1))
+                    else:
+                        filtered_value = new_coords[i]
+                        if i < 3:  # x, y, z
+                            filtered_value = clamp(filtered_value, -280, 280)
+                        else:  # rx, ry, rz
+                            filtered_value = clamp(filtered_value, -179.9, 179.9)
+                        filtered_coords.append(filtered_value)
+            else:
+                # 如果 cutoff_frequency 为 0，直接使用原始坐标
+                filtered_coords = [clamp(val, -280 if i < 3 else -179.9, 280 if i < 3 else 179.9) for i, val in enumerate(new_coords)]
 
-            # 发送滤波后的坐标
+            # 发送坐标
             mc.send_coords(filtered_coords, 20, 1)
             print("coords sent", filtered_coords, " @", start_time)
             
@@ -169,127 +174,139 @@ buffer_size = 20  # 根据需要调整缓冲区大小
 
 coord_buffers = {key: [] for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
 
-while True:
-    start_time = time.time()
+def main():
+    global cutoff_frequency
 
-    ret, frame = cap.read()
-    if not ret:
-        break
+    parser = argparse.ArgumentParser(description='ArUco marker based robot control')
+    parser.add_argument('-f', '--filter', type=float, default=2.0, help='Cutoff frequency for the low-pass filter (Hz). Set to 0 to disable filtering.')
+    args = parser.parse_args()
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    cutoff_frequency = args.filter
 
-    elapsed_time = time.time() - start_time
-    # print(f"image captured. time elapsed: {elapsed_time:.3f}s")
+    while True:
+        start_time = time.time()
 
-    # Detect markers in the frame
-    marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(gray)
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    # Draw the detected markers
-    cv2.aruco.drawDetectedMarkers(frame, marker_corners, marker_ids)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    # Check if any markers were detected
-    if marker_ids is not None:
-        for i in range(len(marker_ids)):
-            # Estimate pose of the marker
-            marker_size = 0.04  # 0.02
-            rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(marker_corners[i], 0.04, camera_matrix, distortion_coeffs)
+        elapsed_time = time.time() - start_time
+        # print(f"image captured. time elapsed: {elapsed_time:.3f}s")
 
-            R_target2cam, _ = cv2.Rodrigues(rvec)
-            t_target2cam = tvec.squeeze()
+        # Detect markers in the frame
+        marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(gray)
 
-            # Calculate roll pitch yaw of R_target2cam
-            rr, pp, yy = rotation_matrix_to_euler_angles(R_target2cam)
+        # Draw the detected markers
+        cv2.aruco.drawDetectedMarkers(frame, marker_corners, marker_ids)
 
-            # 计算目标在世界坐标系中的旋转矩阵
-            R_target2world = R_cam2world @ R_target2cam
+        # Check if any markers were detected
+        if marker_ids is not None:
+            for i in range(len(marker_ids)):
+                # Estimate pose of the marker
+                marker_size = 0.04  # 0.02
+                rvec, tvec, _ = cv2.aruco.estimatePoseSingleMarkers(marker_corners[i], 0.04, camera_matrix, distortion_coeffs)
 
-            # 计算目标在世界坐标系中的平移向量
-            t_target2world = t_cam2world + R_cam2world @ t_target2cam
+                R_target2cam, _ = cv2.Rodrigues(rvec)
+                t_target2cam = tvec.squeeze()
 
-            # 计算目标在世界坐标系中的欧拉角
-            roll, pitch, yaw = rotation_matrix_to_euler_angles(R_target2world)
+                # Calculate roll pitch yaw of R_target2cam
+                rr, pp, yy = rotation_matrix_to_euler_angles(R_target2cam)
 
-            # Draw the axis for the marker
-            cv2.drawFrameAxes(frame, camera_matrix, distortion_coeffs, rvec, tvec, 0.02)
+                # 计算目标在世界坐标系中的旋转矩阵
+                R_target2world = R_cam2world @ R_target2cam
 
-            # Display t values on the frame
-            formatted_tvec = [f"{val:.3f}" for val in tvec[0][0]]
+                # 计算目标在世界坐标系中的平移向量
+                t_target2world = t_cam2world + R_cam2world @ t_target2cam
 
-            formatted_tvec_t2w = [f"{val:.3f}" for val in t_target2world]
+                # 计算目标在世界坐标系中的欧拉角
+                roll, pitch, yaw = rotation_matrix_to_euler_angles(R_target2world)
 
-            # Display the marker ID and pose information on the frame
-            text = f"id: {marker_ids[i]}, t2c tvec: {formatted_tvec}, r: {rr:.0f}, p: {pp:.0f}, y: {yy:.0f}. t2w t:{formatted_tvec_t2w} r: {roll:.0f}, p: {pitch:.0f}, y: {yaw:.0f}"
-            cv2.putText(frame, text, (10, 60+30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                # Draw the axis for the marker
+                cv2.drawFrameAxes(frame, camera_matrix, distortion_coeffs, rvec, tvec, 0.02)
 
+                # Display t values on the frame
+                formatted_tvec = [f"{val:.3f}" for val in tvec[0][0]]
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    total_time = end_time - last_time
-    text = f"time elapsed: {elapsed_time:.3f}s  total time:{total_time:.3f}s"
-    last_time = end_time
+                formatted_tvec_t2w = [f"{val:.3f}" for val in t_target2world]
 
-
-    cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                # Display the marker ID and pose information on the frame
+                text = f"id: {marker_ids[i]}, t2c tvec: {formatted_tvec}, r: {rr:.0f}, p: {pp:.0f}, y: {yy:.0f}. t2w t:{formatted_tvec_t2w} r: {roll:.0f}, p: {pitch:.0f}, y: {yaw:.0f}"
+                cv2.putText(frame, text, (10, 60+30*i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
 
-    # Display the frame with detected markers and pose axes
-    cv2.imshow("Pose Estimation", frame)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        total_time = end_time - last_time
+        text = f"time elapsed: {elapsed_time:.3f}s  total time:{total_time:.3f}s"
+        last_time = end_time
 
-    elapsed_time = time.time() - start_time
-    #print(f"img shown. time elapsed: {elapsed_time:.3f}s")
 
-    key = cv2.waitKey(1) & 0xFF
+        cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    if key == ord('q'):
-        quiting = True
-        break
-    elif key == ord('t'):
+
+        # Display the frame with detected markers and pose axes
+        cv2.imshow("Pose Estimation", frame)
+
+        elapsed_time = time.time() - start_time
+        #print(f"img shown. time elapsed: {elapsed_time:.3f}s")
+
+        key = cv2.waitKey(1) & 0xFF
+
+        if key == ord('q'):
+            quiting = True
+            break
+        elif key == ord('t'):
+            if tracking:
+                print("stop tracking")
+                dt_object = datetime.datetime.fromtimestamp(time.time())
+                formatted_time = dt_object.strftime('%Y-%m-%d-%H-%M-%S')
+                filename = f"records_{formatted_time}.npz"
+                np.savez(filename, coords_array=coords_array, filtered_coords_array=filtered_coords_array)
+                coords_array = []
+                filtered_coords_array = []  # 清空过滤后的坐标数组
+                print("wrote coords to file")
+                tracking = False
+            else:
+                # start tracking
+                if marker_ids is None or len(marker_ids) == 0:
+                    print("tracking can't start because no mark in sight")
+                else:     
+                    print("start tracking")
+                    start_tvec = t_target2world
+                    start_rMat = R_target2world
+                    start_coords = mc.get_coords()
+                    print("start_coords", start_coords)
+                    origin_angles = np.array(start_coords[3:6])
+                    origin_rMat = euler_angles_to_rotation_matrix(np.radians(start_coords[3]), np.radians(start_coords[4]), np.radians(start_coords[5]))
+                    tracking = True
+
         if tracking:
-            print("stop tracking")
-            dt_object = datetime.datetime.fromtimestamp(time.time())
-            formatted_time = dt_object.strftime('%Y-%m-%d-%H-%M-%S')
-            filename = f"records_{formatted_time}.npz"
-            np.savez(filename, coords_array=coords_array, filtered_coords_array=filtered_coords_array)
-            coords_array = []
-            filtered_coords_array = []  # 清空过滤后的坐标数组
-            print("wrote coords to file")
-            tracking = False
-        else:
-            # start tracking
-            if marker_ids is None or len(marker_ids) == 0:
-                print("tracking can't start because no mark in sight")
-            else:     
-                print("start tracking")
-                start_tvec = t_target2world
-                start_rMat = R_target2world
-                start_coords = mc.get_coords()
-                print("start_coords", start_coords)
-                origin_angles = np.array(start_coords[3:6])
-                origin_rMat = euler_angles_to_rotation_matrix(np.radians(start_coords[3]), np.radians(start_coords[4]), np.radians(start_coords[5]))
-                tracking = True
-
-    if tracking:
-        # go to the target position
-        new_tvec = t_target2world
-        move_tvec = new_tvec - start_tvec
-        new_rMat = R_target2world
-        delta_r_Mat = new_rMat @ np.linalg.inv(start_rMat)
-        final_r_Mat = delta_r_Mat @ origin_rMat
-        new_angles = rotation_matrix_to_euler_angles(final_r_Mat)
-        with lock:
-            new_coords = [start_coords[0] + round(move_tvec[0] * 1000, 1),
-                        start_coords[1] + round(move_tvec[1] * 1000, 1),
-                        start_coords[2] + round(move_tvec[2] * 1000, 1),
-                        round(new_angles[0], 2),
-                        round(new_angles[1], 2),
-                        round(new_angles[2], 2)]
-        print("new coords", new_coords)
-        # 移除这行: coords_array.append(new_coords)
-    
-    elapsed_time = time.time() - start_time
-    # print(f"total time elapsed: {elapsed_time:.3f}s")
+            # go to the target position
+            new_tvec = t_target2world
+            move_tvec = new_tvec - start_tvec
+            new_rMat = R_target2world
+            delta_r_Mat = new_rMat @ np.linalg.inv(start_rMat)
+            final_r_Mat = delta_r_Mat @ origin_rMat
+            new_angles = rotation_matrix_to_euler_angles(final_r_Mat)
+            with lock:
+                new_coords = [start_coords[0] + round(move_tvec[0] * 1000, 1),
+                            start_coords[1] + round(move_tvec[1] * 1000, 1),
+                            start_coords[2] + round(move_tvec[2] * 1000, 1),
+                            round(new_angles[0], 2),
+                            round(new_angles[1], 2),
+                            round(new_angles[2], 2)]
+            print("new coords", new_coords)
+            # 移除这行: coords_array.append(new_coords)
+        
+        elapsed_time = time.time() - start_time
+        # print(f"total time elapsed: {elapsed_time:.3f}s")
 
 
 
-cap.release()
-cv2.destroyAllWindows()
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
