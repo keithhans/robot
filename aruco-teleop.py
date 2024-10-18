@@ -161,9 +161,6 @@ marker_ids = []
 
 coords_array = []
 
-# Start the control thread
-control_thread()
-
 
 sampling_freq = 10.0  # 假设的采样频率，根据实际情况调整
 cutoff_frequency = 2.0  # 截止频率 (Hz)
@@ -172,6 +169,9 @@ filter_order = 3
 buffer_size = 20  # 根据需要调整缓冲区大小
 
 coord_buffers = {key: [] for key in ['x', 'y', 'z', 'rx', 'ry', 'rz']}
+
+# Start the control thread
+control_thread()
 
 def main():
     global cutoff_frequency, tracking, coords_array, filtered_coords_array, new_coords, quiting
@@ -291,15 +291,19 @@ def main():
             delta_r_Mat = new_rMat @ np.linalg.inv(start_rMat)
             final_r_Mat = delta_r_Mat @ origin_rMat
             new_angles = rotation_matrix_to_euler_angles(final_r_Mat)
-            with lock:
-                new_coords = [start_coords[0] + round(move_tvec[0] * 1000, 1),
-                            start_coords[1] + round(move_tvec[1] * 1000, 1),
-                            start_coords[2] + round(move_tvec[2] * 1000, 1),
-                            round(new_angles[0], 2),
-                            round(new_angles[1], 2),
-                            round(new_angles[2], 2)]
+            x = start_coords[0] + round(move_tvec[0] * 1000, 1)
+            y = start_coords[1] + round(move_tvec[1] * 1000, 1)
+            z = start_coords[2] + round(move_tvec[2] * 1000, 1)
+            rx = round(new_angles[0], 2)
+            ry = round(new_angles[1], 2)
+            rz = round(new_angles[2], 2)
+            
+            if x <= 280 and x >= -280 and y <= 280 and y >= -280 and z <= 280 and z >= -280:
+                with lock:
+                    new_coords = [x, y, z, rx, ry, rz]
+            else:
+                print("Warning: x or y or z out of range", x, y, z)     # todo: figure out the root cause
             print("new coords", new_coords)
-            # 移除这行: coords_array.append(new_coords)
         
         elapsed_time = time.time() - start_time
         # print(f"total time elapsed: {elapsed_time:.3f}s")
