@@ -37,7 +37,7 @@ def plot_coordinates(coords_array, filtered_coords_array, max_points=200, extra_
         filtered_data = filtered_coords_array[:num_points, i]
         
         axs[row, col].plot(original_data, label='Original', alpha=0.7)
-        axs[row, col].plot(filtered_data, label='Filtered (2Hz)', alpha=0.7)
+        axs[row, col].plot(filtered_data, label='Filtered', alpha=0.7)
         
         if extra_filter_freq:
             extra_filtered = apply_butter_lowpass_lfilter(original_data, cutoff=extra_filter_freq, fs=sampling_freq)
