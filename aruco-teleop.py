@@ -120,7 +120,7 @@ def control_thread():
                     filtered_coords = [clamp(val, -280 if i < 3 else -179.9, 280 if i < 3 else 179.9) for i, val in enumerate(new_coords)]
 
                 # 发送坐标
-                mc.send_coords(filtered_coords, 20, 1)
+                mc.send_coords(filtered_coords, 50, 1)
                 print("coords sent", filtered_coords, " @", start_time)
                 
                 # 保存过滤后的坐标
@@ -163,6 +163,7 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
 # Initialize the MyCobot
 mc = MyCobot("/dev/ttyAMA0", 1000000)
+print("fresh mode", mc.get_fresh_mode())
 
 tracking = False
 marker_ids = []
