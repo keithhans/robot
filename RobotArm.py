@@ -46,14 +46,30 @@ class RobotArm:
             T = T @ self.dh_matrix(self.d[i], theta[i], self.a[i], self.alpha[i])
         return T[:3, 3]  # Return the position (x, y, z)
 
-    def calculate_joint_positions(self, theta):
-        """Calculate the position of each joint frame."""
+    def rotation_matrix_to_euler_angles(self, R):
+        """Convert rotation matrix to Euler angles (ZYX convention)."""
+        sy = np.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+        singular = sy < 1e-6
+        if not singular:
+            x = np.arctan2(R[2,1] , R[2,2])
+            y = np.arctan2(-R[2,0], sy)
+            z = np.arctan2(R[1,0], R[0,0])
+        else:
+            x = np.arctan2(-R[1,2], R[1,1])
+            y = np.arctan2(-R[2,0], sy)
+            z = 0
+        return np.array([x, y, z])
+
+    def calculate_forward_kinematics(self, theta):
+        """Calculate the position and orientation of each joint frame."""
         T = np.eye(4)
         positions = []
+        orientations = []
         for i in range(6):
             T = T @ self.dh_matrix(self.d[i], theta[i], self.a[i], self.alpha[i])
             positions.append(T[:3, 3])
-        return positions
+            orientations.append(self.rotation_matrix_to_euler_angles(T[:3, :3]))
+        return positions, orientations
 
 # Example usage
 if __name__ == "__main__":
@@ -92,8 +108,10 @@ if __name__ == "__main__":
         print(f"Joint {i+1}: {vel:.4f} rad/s")
     print(f"Time taken to calculate joint velocities: {velocity_calculation_time:.6f} seconds")
 
-    # Calculate and print positions of each joint frame at initial angles
-    joint_positions = robot.calculate_joint_positions(initial_joint_angles)
-    print("\nJoint frame positions at initial angles:")
-    for i, pos in enumerate(joint_positions):
-        print(f"Joint {i+1}: X: {pos[0]:.4f}, Y: {pos[1]:.4f}, Z: {pos[2]:.4f}")
+    # Calculate and print positions and orientations of each joint frame at initial angles
+    joint_positions, joint_orientations = robot.calculate_forward_kinematics(initial_joint_angles)
+    print("\nJoint frame positions and orientations at initial configuration:")
+    for i, (pos, orient) in enumerate(zip(joint_positions, joint_orientations)):
+        print(f"Joint {i+1}:")
+        print(f"  Position: X: {pos[0]:.4f}, Y: {pos[1]:.4f}, Z: {pos[2]:.4f}")
+        print(f"  Orientation (Euler angles in radians): Roll: {orient[0]:.4f}, Pitch: {orient[1]:.4f}, Yaw: {orient[2]:.4f}")
