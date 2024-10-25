@@ -46,13 +46,22 @@ class RobotArm:
             T = T @ self.dh_matrix(self.d[i], theta[i], self.a[i], self.alpha[i])
         return T[:3, 3]  # Return the position (x, y, z)
 
+    def calculate_joint_positions(self, theta):
+        """Calculate the position of each joint frame."""
+        T = np.eye(4)
+        positions = []
+        for i in range(6):
+            T = T @ self.dh_matrix(self.d[i], theta[i], self.a[i], self.alpha[i])
+            positions.append(T[:3, 3])
+        return positions
+
 # Example usage
 if __name__ == "__main__":
     # Define D-H parameters
     d = [0.13156, 0, 0, 0.06462, 0.07318, 0.0486]  # Link offsets
-    a = [0, 0, -0.1104, 0.096, 0, 0]  # Link lengths
+    a = [0, 0, -0.1104, -0.096, 0, 0]  # Link lengths
     alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2]  # Link twists
-    theta = [0, -np.pi/2, 0, -np.pi/2, np.pi/2, 0]  # Joint angles (initial values)
+    theta = [0, -np.pi/2, 0, -np.pi/2, np.pi, 0]  # Joint angles (initial values)
 
     # Create RobotArm instance
     robot = RobotArm(d, a, alpha, theta)
@@ -82,3 +91,9 @@ if __name__ == "__main__":
     for i, vel in enumerate(joint_velocities):
         print(f"Joint {i+1}: {vel:.4f} rad/s")
     print(f"Time taken to calculate joint velocities: {velocity_calculation_time:.6f} seconds")
+
+    # Calculate and print positions of each joint frame at initial angles
+    joint_positions = robot.calculate_joint_positions(initial_joint_angles)
+    print("\nJoint frame positions at initial angles:")
+    for i, pos in enumerate(joint_positions):
+        print(f"Joint {i+1}: X: {pos[0]:.4f}, Y: {pos[1]:.4f}, Z: {pos[2]:.4f}")
