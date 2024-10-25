@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 class RobotArm:
     def __init__(self, d, a, alpha, theta):
@@ -62,13 +63,22 @@ if __name__ == "__main__":
     end_effector_vel = np.array([0.1, 0.2, 0.3, 0.01, 0.02, 0.03])  # [vx, vy, vz, wx, wy, wz]
 
     # Calculate and print the end-effector position at initial angles
+    start_time = time.time()
     initial_position = robot.calculate_end_effector_position(initial_joint_angles)
+    end_time = time.time()
+    position_calculation_time = end_time - start_time
+
     print("End-effector position at initial angles:")
     print(f"X: {initial_position[0]:.4f}, Y: {initial_position[1]:.4f}, Z: {initial_position[2]:.4f}")
+    print(f"Time taken to calculate end-effector position: {position_calculation_time:.6f} seconds")
 
     # Calculate and print joint velocities
+    start_time = time.time()
     joint_velocities = robot.calculate_joint_velocities(end_effector_vel, current_joint_angles)
+    end_time = time.time()
+    velocity_calculation_time = end_time - start_time
 
     print("\nJoint velocities:")
     for i, vel in enumerate(joint_velocities):
         print(f"Joint {i+1}: {vel:.4f} rad/s")
+    print(f"Time taken to calculate joint velocities: {velocity_calculation_time:.6f} seconds")
