@@ -77,7 +77,7 @@ if __name__ == "__main__":
     d = [0.13156, 0, 0, 0.06462, 0.07318, 0.0486]  # Link offsets
     a = [0, 0, -0.1104, -0.096, 0, 0]  # Link lengths
     alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2]  # Link twists
-    theta = [0, -np.pi/2, 0, -np.pi/2, np.pi, 0]  # Joint angles (initial values)
+    theta = [0, -np.pi/2, 0, -np.pi/2, np.pi/2, 0]  # Joint angles (initial values)
 
     # Create RobotArm instance
     robot = RobotArm(d, a, alpha, theta)
