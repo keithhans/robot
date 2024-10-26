@@ -1,6 +1,13 @@
 import numpy as np
 import time
 
+def adjust_angle(p):
+       while p > np.pi:
+           p -= 2 * np.pi
+       while p <= -np.pi:
+           p += 2 * np.pi
+       return p
+
 class RobotArm:
     def __init__(self, 
                  d = [0.13156, 0, 0, 0.0634, 0.07505, 0.0456], 
@@ -87,17 +94,24 @@ class RobotArm:
         :return: Joint angles that achieve the target position and orientation
         """
         if initial_guess is None:
-            theta = np.array(self.theta)
+            theta = np.array([0, 0, 0, 0, 0, 0])
         else:
             theta = np.array(initial_guess)
 
         for _ in range(max_iterations):
             current_position = self.calculate_end_effector_position(theta)
             current_orientation = self.calculate_forward_kinematics(theta)[1][-1]
-            
+            print(current_position, current_orientation)
             error = np.concatenate([target_position - current_position, target_orientation - current_orientation])
-            
-            if np.linalg.norm(error) < tolerance:
+            error[3] = adjust_angle(error[3])
+            error[4] = adjust_angle(error[4])
+            error[5] = adjust_angle(error[5])
+
+            print(error)
+            e_norm = np.linalg.norm(error)
+            print(e_norm)
+
+            if e_norm < tolerance:
                 return theta
 
             J = self.calculate_jacobian(theta)
@@ -121,7 +135,7 @@ if __name__ == "__main__":
     robot = RobotArm()
 
     # Example usage
-    initial_joint_angles = [0, 0, 0, 0, 0, 0]  # Use the initial theta values
+    initial_joint_angles = [0, 0, -np.pi/2, 0, 0, 0]  # Use the initial theta values
     current_joint_angles = [0, np.pi/4, -np.pi/6, np.pi/3, -np.pi/4, np.pi/6]
     end_effector_vel = np.array([0.1, 0.2, 0.3, 0.01, 0.02, 0.03])  # [vx, vy, vz, wx, wy, wz]
 
@@ -153,3 +167,37 @@ if __name__ == "__main__":
         print(f"Joint {i+1}:")
         print(f"  Position: X: {pos[0]:.4f}, Y: {pos[1]:.4f}, Z: {pos[2]:.4f}")
         print(f"  Orientation (Euler angles in radians): Roll: {orient[0]:.4f}, Pitch: {orient[1]:.4f}, Yaw: {orient[2]:.4f}")
+
+    # Example usage of inverse kinematics
+    print("\nInverse Kinematics Example:")
+    target_position = np.array([0.1711, -0.0634, 0.1964])  # Target end-effector position
+    target_orientation = np.array([-3.1416, 0, -1.5708])  # Target end-effector orientation (roll, pitch, yaw)
+    
+    #try:
+    start_time = time.time()
+    ik_solution = robot.inverse_kinematics(target_position, target_orientation, [0, 0, -1.5708, 0, 0, 0], 10)
+    end_time = time.time()
+    ik_calculation_time = end_time - start_time
+
+    print(f"Target Position: {target_position}")
+    print(f"Target Orientation: {target_orientation}")
+    print("Inverse Kinematics Solution (Joint Angles):")
+    for i, angle in enumerate(ik_solution):
+        print(f"Joint {i+1}: {angle:.4f} rad")
+    print(f"Time taken to calculate inverse kinematics: {ik_calculation_time:.6f} seconds")
+
+    # Verify the solution using forward kinematics
+    fk_position = robot.calculate_end_effector_position(ik_solution)
+    fk_orientation = robot.calculate_forward_kinematics(ik_solution)[1][-1]
+    
+    print("\nVerification using Forward Kinematics:")
+    print(f"Achieved Position: {fk_position}")
+    print(f"Achieved Orientation: {fk_orientation}")
+    
+    position_error = np.linalg.norm(target_position - fk_position)
+    orientation_error = np.linalg.norm(target_orientation - fk_orientation)
+    print(f"Position Error: {position_error:.6f}")
+    print(f"Orientation Error: {orientation_error:.6f}")
+
+    #except Exception as e:
+    #    print(f"Inverse kinematics failed: {str(e)}")
