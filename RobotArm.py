@@ -75,6 +75,39 @@ class RobotArm:
             orientations.append(self.rotation_matrix_to_euler_angles(T[:3, :3]))
         return positions, orientations
 
+    def inverse_kinematics(self, target_position, target_orientation, initial_guess=None, max_iterations=1000, tolerance=1e-6):
+        """
+        Calculate joint angles for a given end-effector position and orientation.
+        
+        :param target_position: 3D vector of target end-effector position
+        :param target_orientation: 3D vector of target end-effector orientation (Euler angles)
+        :param initial_guess: Initial guess for joint angles (if None, use current theta)
+        :param max_iterations: Maximum number of iterations for numerical solution
+        :param tolerance: Convergence tolerance
+        :return: Joint angles that achieve the target position and orientation
+        """
+        if initial_guess is None:
+            theta = np.array(self.theta)
+        else:
+            theta = np.array(initial_guess)
+
+        for _ in range(max_iterations):
+            current_position = self.calculate_end_effector_position(theta)
+            current_orientation = self.calculate_forward_kinematics(theta)[1][-1]
+            
+            error = np.concatenate([target_position - current_position, target_orientation - current_orientation])
+            
+            if np.linalg.norm(error) < tolerance:
+                return theta
+
+            J = self.calculate_jacobian(theta)
+            J_pseudo_inv = np.linalg.pinv(J)
+            
+            delta_theta = J_pseudo_inv @ error
+            theta += delta_theta
+
+        raise Exception("Inverse kinematics did not converge")
+
 # Example usage
 if __name__ == "__main__":
     # Define D-H parameters
