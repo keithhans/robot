@@ -2,7 +2,11 @@ import numpy as np
 import time
 
 class RobotArm:
-    def __init__(self, d, a, alpha, theta):
+    def __init__(self, 
+                 d = [0.13156, 0, 0, 0.0634, 0.07505, 0.0456], 
+                 a = [0, 0, -0.1104, -0.096, 0, 0], 
+                 alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2], 
+                 theta = [0, -np.pi/2, 0, -np.pi/2, np.pi/2, 0]):
         self.d = d  # Link offsets
         self.a = a  # Link lengths
         self.alpha = alpha  # Link twists
@@ -21,7 +25,7 @@ class RobotArm:
         """Calculate the Jacobian matrix."""
         T = [np.eye(4)]
         for i in range(6):
-            T.append(T[i] @ self.dh_matrix(self.d[i], theta[i], self.a[i], self.alpha[i]))
+            T.append(T[i] @ self.dh_matrix(self.d[i], self.theta[i] + theta[i], self.a[i], self.alpha[i]))
         
         J = np.zeros((6, 6))
         for i in range(6):
@@ -43,7 +47,7 @@ class RobotArm:
         """Calculate the end-effector position given joint angles."""
         T = np.eye(4)
         for i in range(6):
-            T = T @ self.dh_matrix(self.d[i], theta[i], self.a[i], self.alpha[i])
+            T = T @ self.dh_matrix(self.d[i], self.theta[i] + theta[i], self.a[i], self.alpha[i])
         return T[:3, 3]  # Return the position (x, y, z)
 
     def rotation_matrix_to_euler_angles(self, R):
@@ -66,7 +70,7 @@ class RobotArm:
         positions = []
         orientations = []
         for i in range(6):
-            T = T @ self.dh_matrix(self.d[i], theta[i], self.a[i], self.alpha[i])
+            T = T @ self.dh_matrix(self.d[i], self.theta[i] + theta[i], self.a[i], self.alpha[i])
             positions.append(T[:3, 3])
             orientations.append(self.rotation_matrix_to_euler_angles(T[:3, :3]))
         return positions, orientations
@@ -74,16 +78,17 @@ class RobotArm:
 # Example usage
 if __name__ == "__main__":
     # Define D-H parameters
-    d = [0.13156, 0, 0, 0.0634, 0.07505, 0.0456]  # Link offsets
-    a = [0, 0, -0.1104, -0.096, 0, 0]  # Link lengths
-    alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2]  # Link twists
-    theta = [0, -np.pi/2, 0, -np.pi/2, np.pi/2, 0]  # Joint angles (initial values)
+    #d = [0.13156, 0, 0, 0.0634, 0.07505, 0.0456]  # Link offsets
+    #a = [0, 0, -0.1104, -0.096, 0, 0]  # Link lengths
+    #alpha = [0, np.pi/2, 0, 0, np.pi/2, -np.pi/2]  # Link twists
+    #theta = [0, -np.pi/2, 0, -np.pi/2, np.pi/2, 0]  # Joint angles (initial values)
 
     # Create RobotArm instance
-    robot = RobotArm(d, a, alpha, theta)
+    # robot = RobotArm(d, a, alpha, theta)
+    robot = RobotArm()
 
     # Example usage
-    initial_joint_angles = theta  # Use the initial theta values
+    initial_joint_angles = [0, 0, 0, 0, 0, 0]  # Use the initial theta values
     current_joint_angles = [0, np.pi/4, -np.pi/6, np.pi/3, -np.pi/4, np.pi/6]
     end_effector_vel = np.array([0.1, 0.2, 0.3, 0.01, 0.02, 0.03])  # [vx, vy, vz, wx, wy, wz]
 
