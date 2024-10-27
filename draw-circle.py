@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import pinocchio as pin
 
 # Define the circle parameters
@@ -13,6 +14,34 @@ urdf_filename = "mycobot_280_pi.urdf"
 model = pin.buildModelFromUrdf(urdf_filename)
 data = model.createData()
 
+# CLIK parameters
+K = 10  # Gain for CLIK
+dt = sample_rate  # Time step
+
+# Function to move to a target position using CLIK
+def move_to_target(q_init, target_position, max_iterations=1000):
+    q = q_init.copy()
+    for _ in range(max_iterations):
+        pin.forwardKinematics(model, data, q)
+        current_position = data.oMi[model.njoints-1].translation
+        error = target_position - current_position
+        if np.linalg.norm(error) < 1e-4:  # Convergence threshold
+            break
+        J = pin.computeJointJacobians(model, data, q)
+        J = J[:3, :]  # We only need the translational part
+        dq = np.linalg.pinv(J) @ (K * error)
+        q = pin.integrate(model, q, dq * dt)
+    return q
+
+# Move to the start position of the circle
+start_position = center + np.array([radius, 0, 0])
+q_neutral = pin.neutral(model)
+q_start = move_to_target(q_neutral, start_position)
+
+print("Moved to start position.")
+pin.forwardKinematics(model, data, q_start)
+print(f"Start position: {data.oMi[model.njoints-1].translation}")
+
 # Generate circle points
 t = np.arange(0, total_time + sample_rate, sample_rate)
 omega = 2 * np.pi / total_time
@@ -24,6 +53,50 @@ z = np.full_like(t, center[2])
 dx = -radius * omega * np.sin(omega * t)
 dy = radius * omega * np.cos(omega * t)
 dz = np.zeros_like(t)
+
+# Calculate joint angles and velocities
+joint_angles = [q_start]
+joint_velocities = []
+actual_x, actual_y, actual_z = [], [], []
+
+q = q_start
+for i in range(len(t)):
+    pos_desired = np.array([x[i], y[i], z[i]])
+    vel_desired = np.array([dx[i], dy[i], dz[i]])
+
+    pin.forwardKinematics(model, data, q)
+    pin.computeJointJacobians(model, data, q)
+    J = pin.getJointJacobian(model, data, model.njoints-1, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)[:3, :]
+
+    pos_current = data.oMi[model.njoints-1].translation
+    actual_x.append(pos_current[0])
+    actual_y.append(pos_current[1])
+    actual_z.append(pos_current[2])
+
+    e = pos_desired - pos_current
+    dq = np.linalg.pinv(J) @ (vel_desired + K * e)
+
+    q = pin.integrate(model, q, dq * dt)
+
+    joint_angles.append(q)
+    joint_velocities.append(dq)
+
+# Convert to numpy arrays
+joint_angles = np.array(joint_angles)
+joint_velocities = np.array(joint_velocities)
+
+# Plot x, y, z vs time
+plt.figure(figsize=(10, 6))
+plt.plot(t, actual_x, label='x')
+plt.plot(t, actual_y, label='y')
+plt.plot(t, actual_z, label='z')
+plt.title('End Effector Position Components vs Time')
+plt.xlabel('Time (s)')
+plt.ylabel('Position (m)')
+plt.legend()
+plt.grid(True)
+plt.savefig('position_components_vs_time.png')
+plt.close()
 
 # Plot dx, dy, dz vs time
 plt.figure(figsize=(10, 6))
@@ -37,45 +110,6 @@ plt.legend()
 plt.grid(True)
 plt.savefig('velocity_components_vs_time.png')
 plt.close()
-
-# CLIK parameters
-K = 10  # Gain for CLIK
-dt = sample_rate  # Time step
-
-# Calculate joint angles and velocities
-joint_angles = []
-joint_velocities = []
-
-q = pin.neutral(model)  # Initial configuration
-dq = np.zeros(model.nv)  # Initial velocity
-
-for i in range(len(t)):
-    # Current position and velocity
-    pos_desired = np.array([x[i], y[i], z[i]])
-    vel_desired = np.array([dx[i], dy[i], dz[i]])
-
-    # Compute forward kinematics and Jacobian
-    pin.forwardKinematics(model, data, q)
-    pin.computeJointJacobians(model, data, q)
-    J = pin.getJointJacobian(model, data, model.njoints-1, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)[:3, :]
-
-    # Current end-effector position
-    pos_current = data.oMi[model.njoints-1].translation
-
-    # CLIK
-    e = pos_desired - pos_current
-    dq = np.linalg.pinv(J) @ (vel_desired + K * e)
-
-    # Integrate
-    q = pin.integrate(model, q, dq * dt)
-
-    # Store results
-    joint_angles.append(q)
-    joint_velocities.append(dq)
-
-# Convert to numpy arrays for easier manipulation
-joint_angles = np.array(joint_angles)
-joint_velocities = np.array(joint_velocities)
 
 # Plot joint velocities
 plt.figure(figsize=(12, 8))
@@ -101,15 +135,6 @@ print(f"Position error: {np.linalg.norm(final_position - pos_desired)}")
 # Plot trajectory
 plt.figure(figsize=(10, 10))
 plt.plot(x, y, label='Desired')
-actual_x = []
-actual_y = []
-actual_z = []
-for q in joint_angles:
-    pin.forwardKinematics(model, data, q)
-    pos = data.oMi[model.njoints-1].translation
-    actual_x.append(pos[0])
-    actual_y.append(pos[1])
-    actual_z.append(pos[2])
 plt.plot(actual_x, actual_y, label='Actual')
 plt.title('End Effector Trajectory')
 plt.xlabel('X')
@@ -121,3 +146,4 @@ plt.savefig('trajectory.png')
 plt.close()
 
 print("Trajectory plot has been saved as 'trajectory.png'")
+
