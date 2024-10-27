@@ -31,21 +31,20 @@ def move_to_target(q_init, target_position, target_rotation=None):
         iMd = data.oMi[JOINT_ID].actInv(oMdes)
         err = pin.log(iMd).vector
         if np.linalg.norm(err) < eps:
-            break
+            return np.array(q), True  # Converged successfully
         if i >= IT_MAX:
             print(f"Warning: max iterations reached without convergence. error norm:{np.linalg.norm(err)}")
-            break
+            return np.array(q), False  # Did not converge
         J = pin.computeJointJacobian(model, data, q, JOINT_ID)
         J = -np.dot(pin.Jlog6(iMd.inverse()), J)
         v = -J.T.dot(np.linalg.solve(J.dot(J.T) + damp * np.eye(6), err))
         q = pin.integrate(model, q, v * DT)
         i += 1
-    return q
 
 # Move to the start position of the circle
 start_position = center + np.array([radius, 0, 0])
 q_neutral = pin.neutral(model)
-q_start = move_to_target(q_neutral, start_position)
+q_start, _ = move_to_target(q_neutral, start_position)
 
 print("Moved to start position.")
 pin.forwardKinematics(model, data, q_start)
@@ -66,21 +65,39 @@ dz = np.zeros_like(t)
 # Calculate joint angles and velocities
 joint_angles = []
 joint_velocities = []
+actual_x, actual_y, actual_z = [], [], []
+actual_roll, actual_pitch, actual_yaw = [], [], []
 
 q = q_start
+initial_rotation = data.oMi[JOINT_ID].rotation  # Get initial rotation
+
 for i in range(len(t)):
     pos_desired = np.array([x[i], y[i], z[i]])
-    vel_desired = np.array([dx[i], dy[i], dz[i]])
-
+    
+    # Use move_to_target to get joint angles, maintaining initial orientation
+    q, converged = move_to_target(q, pos_desired, initial_rotation)
+    
+    if not converged:
+        print(f"Skipping point at t = {t[i]} pos = {pos_desired}")
+        continue
+    
     pin.forwardKinematics(model, data, q)
     pin.computeJointJacobians(model, data, q)
-    J = pin.getJointJacobian(model, data, JOINT_ID, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)[:3, :]
+    J = pin.getJointJacobian(model, data, JOINT_ID, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
 
     pos_current = data.oMi[JOINT_ID].translation
-    e = pos_desired - pos_current
-    dq = np.linalg.pinv(J) @ (vel_desired + 10 * e)  # Using a gain of 10
+    rot_current = data.oMi[JOINT_ID].rotation
+    rpy_current = pin.rpy.matrixToRpy(rot_current)
 
-    q = pin.integrate(model, q, dq * sample_rate)
+    actual_x.append(pos_current[0])
+    actual_y.append(pos_current[1])
+    actual_z.append(pos_current[2])
+    actual_roll.append(rpy_current[0])
+    actual_pitch.append(rpy_current[1])
+    actual_yaw.append(rpy_current[2])
+
+    vel_desired = np.array([dx[i], dy[i], dz[i], 0, 0, 0])  # Assuming no angular velocity
+    dq = np.linalg.pinv(J) @ vel_desired
 
     joint_angles.append(q)
     joint_velocities.append(dq)
@@ -106,11 +123,14 @@ for q in joint_angles:
     actual_pitch.append(rpy_current[1])
     actual_yaw.append(rpy_current[2])
 
+# Create a new time array based on the actual number of points
+t_actual = np.linspace(0, total_time, len(actual_x))
+
 # Plot x, y, z vs time
 plt.figure(figsize=(10, 6))
-plt.plot(t, actual_x, label='x')
-plt.plot(t, actual_y, label='y')
-plt.plot(t, actual_z, label='z')
+plt.plot(t_actual, actual_x, label='x')
+plt.plot(t_actual, actual_y, label='y')
+plt.plot(t_actual, actual_z, label='z')
 plt.title('End Effector Position Components vs Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Position (m)')
@@ -119,12 +139,12 @@ plt.grid(True)
 plt.savefig('position_components_vs_time.png')
 plt.close()
 
-# Plot dx, dy, dz vs time
+# Plot dx, dy, dz vs time (use original t for desired velocities)
 plt.figure(figsize=(10, 6))
-plt.plot(t, dx, label='dx')
-plt.plot(t, dy, label='dy')
-plt.plot(t, dz, label='dz')
-plt.title('End Effector Velocity Components vs Time')
+plt.plot(t, dx, label='dx (desired)')
+plt.plot(t, dy, label='dy (desired)')
+plt.plot(t, dz, label='dz (desired)')
+plt.title('Desired End Effector Velocity Components vs Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Velocity (m/s)')
 plt.legend()
@@ -135,7 +155,7 @@ plt.close()
 # Plot joint velocities
 plt.figure(figsize=(12, 8))
 for i in range(model.nv):
-    plt.plot(t, joint_velocities[:, i], label=f'Joint {i+1}')
+    plt.plot(t_actual, joint_velocities[:, i], label=f'Joint {i+1}')
 plt.title('Joint Velocities vs Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Angular Velocity (rad/s)')
@@ -159,9 +179,9 @@ plt.close()
 
 # Plot roll, pitch, yaw vs time
 plt.figure(figsize=(10, 6))
-plt.plot(t, actual_roll, label='Roll')
-plt.plot(t, actual_pitch, label='Pitch')
-plt.plot(t, actual_yaw, label='Yaw')
+plt.plot(t_actual, actual_roll, label='Roll')
+plt.plot(t_actual, actual_pitch, label='Pitch')
+plt.plot(t_actual, actual_yaw, label='Yaw')
 plt.title('End Effector Orientation (RPY) vs Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Angle (rad)')
