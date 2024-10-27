@@ -33,7 +33,7 @@ def move_to_target(q_init, target_position, target_rotation=None):
         if np.linalg.norm(err) < eps:
             break
         if i >= IT_MAX:
-            print("Warning: max iterations reached without convergence")
+            print(f"Warning: max iterations reached without convergence. error norm:{np.linalg.norm(err)}")
             break
         J = pin.computeJointJacobian(model, data, q, JOINT_ID)
         J = -np.dot(pin.Jlog6(iMd.inverse()), J)
@@ -64,7 +64,7 @@ dy = radius * omega * np.cos(omega * t)
 dz = np.zeros_like(t)
 
 # Calculate joint angles and velocities
-joint_angles = [] # [q_start]
+joint_angles = []
 joint_velocities = []
 
 q = q_start
@@ -91,12 +91,20 @@ joint_velocities = np.array(joint_velocities)
 
 # Calculate actual trajectory
 actual_x, actual_y, actual_z = [], [], []
+actual_roll, actual_pitch, actual_yaw = [], [], []
 for q in joint_angles:
     pin.forwardKinematics(model, data, q)
     pos = data.oMi[JOINT_ID].translation
     actual_x.append(pos[0])
     actual_y.append(pos[1])
     actual_z.append(pos[2])
+    
+    rot_current = data.oMi[JOINT_ID].rotation
+    rpy_current = pin.rpy.matrixToRpy(rot_current)
+
+    actual_roll.append(rpy_current[0])
+    actual_pitch.append(rpy_current[1])
+    actual_yaw.append(rpy_current[2])
 
 # Plot x, y, z vs time
 plt.figure(figsize=(10, 6))
@@ -149,7 +157,20 @@ plt.grid(True)
 plt.savefig('trajectory.png')
 plt.close()
 
-print("All plots have been saved.")
+# Plot roll, pitch, yaw vs time
+plt.figure(figsize=(10, 6))
+plt.plot(t, actual_roll, label='Roll')
+plt.plot(t, actual_pitch, label='Pitch')
+plt.plot(t, actual_yaw, label='Yaw')
+plt.title('End Effector Orientation (RPY) vs Time')
+plt.xlabel('Time (s)')
+plt.ylabel('Angle (rad)')
+plt.legend()
+plt.grid(True)
+plt.savefig('orientation_rpy_vs_time.png')
+plt.close()
+
+print("All plots have been saved, including the new orientation (RPY) plot.")
 
 # Verify final position
 pin.forwardKinematics(model, data, joint_angles[-1])
