@@ -4,7 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import pinocchio as pin
 
 # Define the circle parameters
-center = np.array([0.1, 0, 0.1])
+center = np.array([0.18, 0, 0.1])
 radius = 0.05
 total_time = 10  # seconds
 sample_rate = 0.1  # 100ms
