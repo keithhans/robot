@@ -3,12 +3,18 @@ import argparse
 import time
 from pymycobot import MyCobot
 
-def velocity_to_jog_command(velocity):
+def velocity_to_jog_command(velocity, joint_id):
     """Convert joint velocity to direction and speed for jog_angle command"""
-    direction = 1 if velocity >= 0 else 0
+    # handle weird behavior of jog_angle
+    direction = 0
+    if joint_id == 3:
+        direction = 1 if velocity >= 0 else 0
+    else:
+        direction = 1 if velocity <= 0 else 0
     # 将速度映射到1-100的范围
-    # 假设最大速度为2 rad/s
-    MAX_VELOCITY = 2.0
+    # 假设最大速度为180 degree/s  
+    # https://docs.elephantrobotics.com/docs/mycobot_280_pi_cn/4-SupportAndService/9.Troubleshooting/9.3-hardware.html
+    MAX_VELOCITY = np.pi
     speed = int(min(100, max(1, abs(velocity) / MAX_VELOCITY * 100)))
     return direction, speed
 
@@ -51,7 +57,7 @@ def main():
             
             # 对每个关节执行速度命令
             for joint_id in range(6):
-                direction, speed = velocity_to_jog_command(velocities[joint_id])
+                direction, speed = velocity_to_jog_command(velocities[joint_id], joint_id)
                 mc.jog_angle(joint_id + 1, direction, speed)  # joint_id从1开始
             
             # 等待到下一个采样时刻
