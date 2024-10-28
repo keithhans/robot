@@ -22,12 +22,15 @@ def test_joint_velocity(mc, joint_id, target_angle=90):
         
         # 开始运动
         direction = 1 if target_angle > start_angle else 0
-        mc.jog_angle(joint_id, direction, 100)  # 使用最大速度100
+        mc.jog_angle(joint_id, direction, 10)  # 使用最大速度100
         
         # 持续记录直到达到目标角度或超时
         timeout = 10  # 10秒超时
         while time.time() - start_time < timeout:
             current_angles = mc.get_angles()
+            while current_angles == None:
+                current_angles = mc.get_angles()
+            print(current_angles)
             current_angle = current_angles[joint_id-1]
             current_time = time.time() - start_time
             
@@ -35,9 +38,7 @@ def test_joint_velocity(mc, joint_id, target_angle=90):
             times.append(current_time)
             
             # 检查是否达到目标角度
-            if direction == 1 and current_angle >= target_angle:
-                break
-            if direction == 0 and current_angle <= target_angle:
+            if abs(current_angle) >= abs(target_angle):
                 break
             
             time.sleep(0.1)  # 采样间隔100ms
