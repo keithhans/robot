@@ -20,9 +20,10 @@ IT_MAX = 1000
 DT = 1e-1
 damp = 1e-12
 
-def move_to_target(q_init, target_position, target_rotation=None):
-    if target_rotation is None:
-        target_rotation = pin.utils.rpyToMatrix(-3.1416, 0, -1.5708)  # Default rotation if not specified
+def move_to_target(q_init, target_position, target_rpy=None):
+    if target_rpy is None:
+        target_rpy = [-3.1416, 0, -1.5708]  # Default RPY if not specified
+    target_rotation = pin.utils.rpyToMatrix(target_rpy[0], target_rpy[1], target_rpy[2])
     oMdes = pin.SE3(target_rotation, target_position)
     q = q_init.copy()
     i = 0
