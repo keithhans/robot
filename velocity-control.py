@@ -25,8 +25,8 @@ def main():
 
     try:
         data = np.load(args.npz_file)
-        start_position = data['start_position']
-        start_rpy = data['start_rpy']
+        start_position = data['start_position'] * 1000
+        start_rpy = data['start_rpy'] / np.pi * 180
         joint_velocities = data['joint_velocities']
         t = data['t']
         
@@ -39,14 +39,14 @@ def main():
     except Exception as e:
         print(f"Error loading the NPZ file: {e}")
         return
-    
+   
     mc = MyCobot("/dev/ttyAMA0", 1000000)
     mc.set_fresh_mode(0)
 
     # move robot to initial position
     initial_coords = np.concatenate([start_position, start_rpy])
     mc.send_coords(initial_coords.tolist(), 50, 1)
-    time.sleep(3)
+    time.sleep(10)
 
     print("Starting trajectory execution...")
     sample_time = t[1] - t[0]  # 采样时间间隔
@@ -58,6 +58,7 @@ def main():
             # 对每个关节执行速度命令
             for joint_id in range(6):
                 direction, speed = velocity_to_jog_command(velocities[joint_id], joint_id)
+                print(f"joint {joint_id} speed {speed} direction {direction}")
                 mc.jog_angle(joint_id + 1, direction, speed)  # joint_id从1开始
             
             # 等待到下一个采样时刻
