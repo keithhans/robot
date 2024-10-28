@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pinocchio as pin
+import datetime
+import time
 
 # Define the circle parameters
 center = np.array([0.18, 0, 0.1])
@@ -44,8 +46,9 @@ def move_to_target(q_init, target_position, target_rpy=None):
 
 # Move to the start position of the circle
 start_position = center + np.array([radius, 0, 0])
+start_rpy = [-3.1416, 0, -1.5708]
 q_neutral = pin.neutral(model)
-q_start, _ = move_to_target(q_neutral, start_position)
+q_start, _ = move_to_target(q_neutral, start_position, start_rpy)
 
 print("Moved to start position.")
 pin.forwardKinematics(model, data, q_start)
@@ -71,12 +74,13 @@ actual_roll, actual_pitch, actual_yaw = [], [], []
 
 q = q_start
 initial_rotation = data.oMi[JOINT_ID].rotation  # Get initial rotation
+initial_rpy = pin.rpy.matrixToRpy(initial_rotation)  # 将旋转矩阵转换为 RPY 角度
 
 for i in range(len(t)):
     pos_desired = np.array([x[i], y[i], z[i]])
     
     # Use move_to_target to get joint angles, maintaining initial orientation
-    q, converged = move_to_target(q, pos_desired, initial_rotation)
+    q, converged = move_to_target(q, pos_desired, initial_rpy)  # 使用 RPY 角度而不是旋转矩阵
     
     if not converged:
         print(f"Skipping point at t = {t[i]} pos = {pos_desired}")
@@ -199,3 +203,16 @@ final_position = data.oMi[JOINT_ID].translation
 print(f"Final end-effector position: {final_position}")
 print(f"Desired final position: {pos_desired}")
 print(f"Position error: {np.linalg.norm(final_position - pos_desired)}")
+
+# 在程序结束前，保存数据到 npz 文件
+dt_object = datetime.datetime.fromtimestamp(time.time())
+formatted_time = dt_object.strftime('%Y-%m-%d-%H-%M-%S')
+filename = f"circle_data_{formatted_time}.npz"
+
+np.savez(filename, 
+         start_position=start_position,
+         start_rpy=start_rpy,
+         joint_velocities=joint_velocities,
+         t=t_actual)  # 也保存时间数组以便后续使用
+
+print(f"Saved data to {filename}")
