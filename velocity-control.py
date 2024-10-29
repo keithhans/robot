@@ -19,8 +19,8 @@ def velocity_to_jog_command(velocity, joint_id):
     return direction, speed
 
 def main():
-    parser = argparse.ArgumentParser(description='Load and process circle trajectory data.')
-    parser.add_argument('npz_file', help='Path to the NPZ file containing circle trajectory data')
+    parser = argparse.ArgumentParser(description='Load and process trajectory data.')
+    parser.add_argument('npz_file', help='Path to the NPZ file containing trajectory data')
     args = parser.parse_args()
 
     try:
@@ -28,12 +28,14 @@ def main():
         start_position = data['start_position'] * 1000
         start_rpy = data['start_rpy'] / np.pi * 180
         joint_velocities = data['joint_velocities']
+        joint_angles = data['joint_angles']
         t = data['t']
         
         print("Loaded data from:", args.npz_file)
         print("Start position:", start_position)
         print("Start RPY:", start_rpy)
         print("Joint velocities shape:", joint_velocities.shape)
+        print("Joint angles shape:", joint_angles.shape)
         print("Time points:", len(t))
         
     except Exception as e:
@@ -52,15 +54,10 @@ def main():
     sample_time = t[1] - t[0]  # 采样时间间隔
 
     try:
-        for velocities in joint_velocities:
+        for angle in joint_angles:
             start_time = time.time()
             
-            # 对每个关节执行速度命令
-            for joint_id in range(6):
-                direction, speed = velocity_to_jog_command(velocities[joint_id], joint_id)
-                print(f"joint {joint_id} speed {speed} direction {direction}")
-                mc.jog_angle(joint_id + 1, direction, speed)  # joint_id从1开始
-            
+            mc.send_radians(angle, 10)            
             # 等待到下一个采样时刻
             elapsed_time = time.time() - start_time
             if elapsed_time < sample_time:
@@ -68,10 +65,7 @@ def main():
             
     except KeyboardInterrupt:
         print("\nTrajectory execution interrupted by user")
-        # 确保所有关节都停止
-        mc.stop()
 
-    mc.stop()
     print("Trajectory execution completed")
 
 if __name__ == "__main__":
