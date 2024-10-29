@@ -222,7 +222,12 @@ def validate_predictions(target_positions, actual_positions, test_ratio=0.2):
     """验证预测误差的准确性"""
     # 随机选择测试点
     n_points = len(target_positions)
-    n_test = int(n_points * test_ratio)
+    n_test = max(1, int(n_points * test_ratio))  # 确保至少有一个测试点
+    
+    if n_points < 5:  # 如果数据点太少，无法进行有效验证
+        print("Warning: Too few points for meaningful validation")
+        return np.zeros(3), np.zeros(3), np.zeros(3)
+    
     test_indices = np.random.choice(n_points, n_test, replace=False)
     train_indices = np.array([i for i in range(n_points) if i not in test_indices])
     
@@ -240,10 +245,26 @@ def validate_predictions(target_positions, actual_positions, test_ratio=0.2):
     errors = train_actuals - train_targets
     
     for point in test_targets:
-        predicted_error = predict_error_at_point(point, train_targets, errors)
-        predicted_errors.append(predicted_error)
+        try:
+            predicted_error = predict_error_at_point(point, train_targets, errors, method='linear')  # 改用线性插值
+            if np.any(np.isnan(predicted_error)):
+                # 如果预测值是 NaN，使用最近点的误差
+                distances = np.linalg.norm(train_targets - point, axis=1)
+                nearest_idx = np.argmin(distances)
+                predicted_error = errors[nearest_idx]
+            predicted_errors.append(predicted_error)
+        except Exception as e:
+            print(f"Warning: Prediction failed for point {point}: {e}")
+            # 使用平均误差作为后备方案
+            predicted_error = np.mean(errors, axis=0)
+            predicted_errors.append(predicted_error)
     
     predicted_errors = np.array(predicted_errors)
+    
+    # 检查是否有有效的预测结果
+    if len(predicted_errors) == 0:
+        print("Warning: No valid predictions generated")
+        return np.zeros(3), np.zeros(3), np.zeros(3)
     
     # 计算预测误差与实际误差的差异
     prediction_accuracy = np.abs(predicted_errors - actual_errors)
@@ -275,6 +296,7 @@ def validate_predictions(target_positions, actual_positions, test_ratio=0.2):
         print(f"Mean prediction error: {mean_accuracy[i]:.2f} mm")
         print(f"Max prediction error: {max_accuracy[i]:.2f} mm")
         print(f"RMSE: {rmse[i]:.2f} mm")
+        print(f"Number of test points: {len(predicted_errors)}")
     
     return mean_accuracy, max_accuracy, rmse
 
