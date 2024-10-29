@@ -218,6 +218,66 @@ def predict_error_at_point(point, target_positions, errors, method='cubic'):
         predicted_error.append(float(error_i))
     return np.array(predicted_error)
 
+def validate_predictions(target_positions, actual_positions, test_ratio=0.2):
+    """验证预测误差的准确性"""
+    # 随机选择测试点
+    n_points = len(target_positions)
+    n_test = int(n_points * test_ratio)
+    test_indices = np.random.choice(n_points, n_test, replace=False)
+    train_indices = np.array([i for i in range(n_points) if i not in test_indices])
+    
+    # 分割训练集和测试集
+    train_targets = target_positions[train_indices]
+    train_actuals = actual_positions[train_indices]
+    test_targets = target_positions[test_indices]
+    test_actuals = actual_positions[test_indices]
+    
+    # 计算实际误差
+    actual_errors = test_actuals - test_targets
+    
+    # 使用训练集预测测试集的误差
+    predicted_errors = []
+    errors = train_actuals - train_targets
+    
+    for point in test_targets:
+        predicted_error = predict_error_at_point(point, train_targets, errors)
+        predicted_errors.append(predicted_error)
+    
+    predicted_errors = np.array(predicted_errors)
+    
+    # 计算预测误差与实际误差的差异
+    prediction_accuracy = np.abs(predicted_errors - actual_errors)
+    
+    # 绘制对比图
+    plt.figure(figsize=(15, 5))
+    titles = ['X Error', 'Y Error', 'Z Error']
+    for i in range(3):
+        plt.subplot(1, 3, i+1)
+        plt.scatter(actual_errors[:, i], predicted_errors[:, i], alpha=0.5)
+        plt.plot([-10, 10], [-10, 10], 'r--')  # 理想预测线
+        plt.xlabel('Actual Error (mm)')
+        plt.ylabel('Predicted Error (mm)')
+        plt.title(f'{titles[i]} Prediction')
+        plt.grid(True)
+    
+    plt.tight_layout()
+    plt.savefig('error_prediction_validation.png')
+    plt.close()
+    
+    # 计算统计信息
+    mean_accuracy = np.mean(prediction_accuracy, axis=0)
+    max_accuracy = np.max(prediction_accuracy, axis=0)
+    rmse = np.sqrt(np.mean((predicted_errors - actual_errors)**2, axis=0))
+    
+    print("\nPrediction Validation Results:")
+    for i, axis in enumerate(['X', 'Y', 'Z']):
+        print(f"\n{axis} Axis:")
+        print(f"Mean prediction error: {mean_accuracy[i]:.2f} mm")
+        print(f"Max prediction error: {max_accuracy[i]:.2f} mm")
+        print(f"RMSE: {rmse[i]:.2f} mm")
+    
+    return mean_accuracy, max_accuracy, rmse
+
 def main():
     mc = MyCobot("/dev/ttyAMA0", 1000000)
     mc.set_fresh_mode(0)
@@ -306,6 +366,20 @@ def main():
                 f.write(f"Predicted error: X={predicted_error[0]:.2f}, Y={predicted_error[1]:.2f}, Z={predicted_error[2]:.2f} mm\n")
                 f.write(f"Total error magnitude: {np.linalg.norm(predicted_error):.2f} mm\n")
         
+        # 验证预测准确性
+        print("\nValidating prediction accuracy...")
+        mean_accuracy, max_accuracy, rmse = validate_predictions(
+            target_points[:, :3], actual_points[:, :3])
+        
+        # 将验证结果也保存到统计文件中
+        with open(f'scan_statistics_{timestamp}.txt', 'a') as f:
+            f.write("\nPrediction Validation Results:\n")
+            for i, axis in enumerate(['X', 'Y', 'Z']):
+                f.write(f"\n{axis} Axis:\n")
+                f.write(f"Mean prediction error: {mean_accuracy[i]:.2f} mm\n")
+                f.write(f"Max prediction error: {max_accuracy[i]:.2f} mm\n")
+                f.write(f"RMSE: {rmse[i]:.2f} mm\n")
+    
     except KeyboardInterrupt:
         print("\nScan interrupted by user")
         mc.stop()
