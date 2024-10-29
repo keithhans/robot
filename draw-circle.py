@@ -47,12 +47,13 @@ def move_to_target(q_init, target_position, target_rpy=None):
 # Move to the start position of the circle
 start_position = center + np.array([radius, 0, 0])
 start_rpy = [-3.1416, 0, -1.5708]
-q_neutral = pin.neutral(model)
-q_start, _ = move_to_target(q_neutral, start_position, start_rpy)
+# Initial point is critical to avoid running into local minimum
+q_start, _ = move_to_target(np.array([0.2, -0.6, -1.7, 0.8, 0, 0.2]), start_position, start_rpy)
 
 print("Moved to start position.")
 pin.forwardKinematics(model, data, q_start)
 print(f"Start position: {data.oMi[JOINT_ID].translation}")
+print(f"joint angles: {q_start}")
 
 # Generate circle points
 t = np.arange(0, total_time + sample_rate, sample_rate)
@@ -155,6 +156,18 @@ plt.ylabel('Velocity (m/s)')
 plt.legend()
 plt.grid(True)
 plt.savefig('velocity_components_vs_time.png')
+plt.close()
+
+# Plot joint angles
+plt.figure(figsize=(12, 8))
+for i in range(model.nv):
+    plt.plot(t_actual, joint_angles[:, i], label=f'Joint {i+1}')
+plt.title('Joint Angles vs Time')
+plt.xlabel('Time (s)')
+plt.ylabel('Angle (rad)')
+plt.legend()
+plt.grid(True)
+plt.savefig('joint_angles_vs_time.png')
 plt.close()
 
 # Plot joint velocities
