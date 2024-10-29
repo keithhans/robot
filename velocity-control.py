@@ -56,8 +56,8 @@ def main():
     try:
         for angle in joint_angles:
             start_time = time.time()
-            
-            mc.send_radians(angle, 10)            
+            print(angle)
+            mc.send_radians(angle, 50)            
             # 等待到下一个采样时刻
             elapsed_time = time.time() - start_time
             if elapsed_time < sample_time:

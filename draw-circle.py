@@ -6,8 +6,8 @@ import datetime
 import time
 
 # Define the circle parameters
-center = np.array([0.18, 0, 0.1])
-radius = 0.05
+center = np.array([0.20, 0, 0.1])
+radius = 0.04
 total_time = 20  # seconds
 sample_rate = 0.1  # 100ms
 
