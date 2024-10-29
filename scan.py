@@ -3,14 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pymycobot import MyCobot
 import datetime
+import traceback
 
 # 机械臂的工作范围
-ARM_X_MIN = 140
-ARM_X_MAX = 270
+ARM_X_MIN = 160
+ARM_X_MAX = 230
 ARM_Y_MIN = -100
 ARM_Y_MAX = 100
 ARM_Z_DOWN = 80  # 假设Z轴高度固定
-STEP = 20  # 扫描间隔
+STEP = 40  # 扫描间隔
 
 def generate_scan_points():
     """生成扫描点的坐标"""
@@ -126,8 +127,8 @@ def main():
             print(f"Target position: {point[:3]}")
             
             # 移动到目标位置
-            mc.send_coords(point.tolist(), 50, 1)
-            time.sleep(1)  # 等待机械臂稳定
+            mc.send_coords(point.tolist(), 50, 0)
+            time.sleep(3)  # 等待机械臂稳定
             
             # 获取实际位置
             actual_coords = None
@@ -158,7 +159,7 @@ def main():
         
         # 分析和绘制结果
         mean_error, max_error, std_error = plot_position_errors(
-            target_points[:, :2], actual_points[:, :2])
+            target_points[:, :3], actual_points[:, :3])
         
         # 保存统计结果到文本文件
         with open(f'scan_statistics_{timestamp}.txt', 'w') as f:
@@ -174,10 +175,13 @@ def main():
         
     except KeyboardInterrupt:
         print("\nScan interrupted by user")
+        mc.stop()
     except Exception as e:
         print(f"Error during scan: {e}")
+        traceback.print_exc()
     finally:
         print("\nScan completed")
+        mc.stop()
 
 if __name__ == "__main__":
     main()
