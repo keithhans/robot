@@ -68,7 +68,7 @@ def plot_position_errors(target_positions, actual_positions):
     plt.savefig('error_distribution.png')
     plt.close()
     
-    # 绘制3D误差散点图
+    # 绘制3D误差散点图 - 交互式显示
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(target_positions[:, 0], target_positions[:, 1], target_positions[:, 2], 
@@ -85,10 +85,39 @@ def plot_position_errors(target_positions, actual_positions):
     ax.set_xlabel('X (mm)')
     ax.set_ylabel('Y (mm)')
     ax.set_zlabel('Z (mm)')
-    ax.set_title('3D Position Errors')
+    ax.set_title('3D Position Errors\n(Use mouse to rotate)')
     ax.legend()
+    
+    # 设置视角
+    ax.view_init(elev=30, azim=45)
+    
+    # 添加网格
+    ax.grid(True)
+    
+    # 设置坐标轴比例相同
+    max_range = np.array([
+        target_positions[:, 0].max() - target_positions[:, 0].min(),
+        target_positions[:, 1].max() - target_positions[:, 1].min(),
+        target_positions[:, 2].max() - target_positions[:, 2].min()
+    ]).max() / 2.0
+    
+    mid_x = (target_positions[:, 0].max() + target_positions[:, 0].min()) * 0.5
+    mid_y = (target_positions[:, 1].max() + target_positions[:, 1].min()) * 0.5
+    mid_z = (target_positions[:, 2].max() + target_positions[:, 2].min()) * 0.5
+    
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+    
+    # 保存静态图
     plt.savefig('position_errors_3d.png')
-    plt.close()
+    
+    # 显示交互式图形
+    print("\n正在显示3D交互图形...")
+    print("使用鼠标拖动来旋转视角")
+    print("使用鼠标滚轮来缩放")
+    print("关闭图形窗口以继续程序")
+    plt.show()
     
     # 计算并打印统计信息
     # 计算3D欧氏距离误差
