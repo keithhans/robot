@@ -5,6 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from pymycobot import MyCobot
 import datetime
 import traceback
+from scipy.interpolate import griddata
 
 # 机械臂的工作范围
 ARM_X_MIN = 160
@@ -141,6 +142,82 @@ def plot_position_errors(target_positions, actual_positions):
     
     return mean_error, max_error, std_error
 
+def predict_position_errors(target_positions, actual_positions, grid_size=20):
+    """预测任意位置的定位误差"""
+    # 计算实际误差
+    errors = actual_positions - target_positions
+    
+    # 创建预测用的网格点
+    x_min, x_max = ARM_X_MIN, ARM_X_MAX
+    y_min, y_max = ARM_Y_MIN, ARM_Y_MAX
+    xi = np.linspace(x_min, x_max, grid_size)
+    yi = np.linspace(y_min, y_max, grid_size)
+    xi, yi = np.meshgrid(xi, yi)
+    
+    # 对每个坐标分量进行插值
+    error_predictions = []
+    for i in range(3):  # x, y, z 三个方向的误差
+        zi = griddata((target_positions[:, 0], target_positions[:, 1]), 
+                     errors[:, i], 
+                     (xi, yi), 
+                     method='cubic',
+                     fill_value=0)
+        error_predictions.append(zi)
+    
+    # 绘制预测误差图
+    fig = plt.figure(figsize=(15, 5))
+    titles = ['X Error', 'Y Error', 'Z Error']
+    for i in range(3):
+        ax = fig.add_subplot(1, 3, i+1)
+        im = ax.imshow(error_predictions[i], 
+                      extent=[x_min, x_max, y_min, y_max],
+                      origin='lower',
+                      aspect='auto',
+                      cmap='RdYlBu')
+        plt.colorbar(im, ax=ax)
+        ax.set_title(f'Predicted {titles[i]} (mm)')
+        ax.set_xlabel('X (mm)')
+        ax.set_ylabel('Y (mm)')
+        # 添加实际测量点
+        ax.scatter(target_positions[:, 0], target_positions[:, 1], 
+                  c='black', s=10, alpha=0.5, label='Measured Points')
+        ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig('error_prediction_map.png')
+    plt.close()
+    
+    # 绘制总误差预测图
+    total_error = np.sqrt(np.sum(np.array(error_predictions)**2, axis=0))
+    plt.figure(figsize=(10, 8))
+    im = plt.imshow(total_error, 
+                    extent=[x_min, x_max, y_min, y_max],
+                    origin='lower',
+                    aspect='auto',
+                    cmap='viridis')
+    plt.colorbar(im, label='Predicted Total Error (mm)')
+    plt.title('Predicted Total Position Error')
+    plt.xlabel('X (mm)')
+    plt.ylabel('Y (mm)')
+    plt.scatter(target_positions[:, 0], target_positions[:, 1], 
+                c='red', s=10, alpha=0.5, label='Measured Points')
+    plt.legend()
+    plt.savefig('total_error_prediction_map.png')
+    plt.close()
+    
+    return error_predictions, (xi, yi)
+
+def predict_error_at_point(point, target_positions, errors, method='cubic'):
+    """预测特定点的误差"""
+    predicted_error = []
+    for i in range(3):  # x, y, z 三个方向
+        error_i = griddata((target_positions[:, 0], target_positions[:, 1]),
+                          errors[:, i],
+                          (point[0], point[1]),
+                          method=method)
+        predicted_error.append(float(error_i))
+    return np.array(predicted_error)
+
 def main():
     mc = MyCobot("/dev/ttyAMA0", 1000000)
     mc.set_fresh_mode(0)
@@ -191,6 +268,26 @@ def main():
         mean_error, max_error, std_error = plot_position_errors(
             target_points[:, :3], actual_points[:, :3])
         
+        # 预测误差
+        print("\nGenerating error prediction maps...")
+        error_predictions, (xi, yi) = predict_position_errors(
+            target_points[:, :3], actual_points[:, :3])
+        
+        # 测试预测功能
+        test_points = [
+            [200, 0, ARM_Z_DOWN],  # 中心点
+            [ARM_X_MIN, ARM_Y_MIN, ARM_Z_DOWN],  # 左下角
+            [ARM_X_MAX, ARM_Y_MAX, ARM_Z_DOWN],  # 右上角
+        ]
+        
+        print("\nPredicted errors at test points:")
+        errors = actual_points[:, :3] - target_points[:, :3]
+        for point in test_points:
+            predicted_error = predict_error_at_point(point, target_points[:, :3], errors)
+            print(f"\nPoint {point[:2]} mm:")
+            print(f"Predicted error: X={predicted_error[0]:.2f}, Y={predicted_error[1]:.2f}, Z={predicted_error[2]:.2f} mm")
+            print(f"Total error magnitude: {np.linalg.norm(predicted_error):.2f} mm")
+        
         # 保存统计结果到文本文件
         with open(f'scan_statistics_{timestamp}.txt', 'w') as f:
             f.write(f"Scan Statistics:\n")
@@ -202,6 +299,12 @@ def main():
             f.write(f"Y Range: {ARM_Y_MIN} to {ARM_Y_MAX} mm\n")
             f.write(f"Z Height: {ARM_Z_DOWN} mm\n")
             f.write(f"Step Size: {STEP} mm\n")
+            f.write("\nPredicted Errors at Test Points:\n")
+            for i, point in enumerate(test_points):
+                predicted_error = predict_error_at_point(point, target_points[:, :3], errors)
+                f.write(f"\nTest Point {i+1} ({point[0]}, {point[1]}):\n")
+                f.write(f"Predicted error: X={predicted_error[0]:.2f}, Y={predicted_error[1]:.2f}, Z={predicted_error[2]:.2f} mm\n")
+                f.write(f"Total error magnitude: {np.linalg.norm(predicted_error):.2f} mm\n")
         
     except KeyboardInterrupt:
         print("\nScan interrupted by user")
