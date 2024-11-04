@@ -187,7 +187,7 @@ def main():
     last_time = time.time()
 
     parser = argparse.ArgumentParser(description='ArUco marker based robot control')
-    parser.add_argument('-f', '--filter', type=float, default=2.0, help='Cutoff frequency for the low-pass filter (Hz). Set to 0 to disable filtering.')
+    parser.add_argument('-f', '--filter', type=float, default=0, help='Cutoff frequency for the low-pass filter (Hz). Set to 0 to disable filtering.')
     args = parser.parse_args()
 
     cutoff_frequency = args.filter
