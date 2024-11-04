@@ -129,15 +129,14 @@ def test_position_mode(mc, id, target):
     print("i ", mc.get_servo_data(id, 23))
     
 
-    set_speed(mc, id, 0, 25)
+    set_speed(mc, id, 0, 1700)
 
     set_target_position(mc, id, target)
     
     last = time.time()
 
-    time.sleep(0.2)
-
-    while is_running(mc, id):
+    #while is_running(mc, id):
+    for i in range(30):
         now = time.time()
         print("encoder:", get_encoder(mc, id), " speed:", get_speed(mc, id), 
                 " time ", now - last)
@@ -175,5 +174,5 @@ def test_multiple_motor(mc):
 
 #test_single_motor(mc, 1)
 
-test_position_mode(mc, 1, 256 * 8)
+test_position_mode(mc, 2, 256 * 7 + 128)
 
