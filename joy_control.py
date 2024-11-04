@@ -258,6 +258,8 @@ def continous_move():
 
     not_zero = lambda x: x < -0.1 or x > 0.1
     is_zero = lambda x: -0.1 < x < 0.1
+    
+    last = time.time()
 
     while True:
         if not global_states["enable"] or not global_states["initialized"]:
@@ -270,7 +272,7 @@ def continous_move():
             continue
         else:
             origin = global_states["origin"]
-
+        
         for key, value in global_states["move_key_states"].items():
             if key in [
                 JoyStickContinous.LeftXAxis,
@@ -283,7 +285,9 @@ def continous_move():
                 JoyStickContinous.RightXAxis,
             ] and not_zero(value):
                 x, y, z, rx, ry, rz = origin
-                print(f"continous move key:{key} value:{value} origin:{origin}")
+                now = time.time()
+                print(f"{(now-last):.3f} continous move key:{key} value:{value:.3f} origin:{origin}")
+                last = now
                 # Y coord
                 if key == JoyStickContinous.LeftXAxis:
                     #mc.send_coord(2, y - value * ratio, move_speed)
@@ -321,7 +325,7 @@ def continous_move():
                         global_states["origin"][4] += 1
                 mc.send_coords(global_states["origin"], move_speed, 1)  # path should be linear
 
-        time.sleep(0.05)
+        time.sleep(0.01)
 
 
 def dispatch_continous_key_action(key: JoyStickContinous, value: float):
