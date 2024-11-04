@@ -7,7 +7,7 @@ import time
 
 # Define the circle parameters
 center = np.array([0.20, 0, 0.1])
-radius = 0.04
+radius = 0.03
 total_time = 20  # seconds
 sample_rate = 0.1  # 100ms
 
@@ -45,7 +45,7 @@ def move_to_target(q_init, target_position, target_rpy=None):
         i += 1
 
 # Move to the start position of the circle
-start_position = center + np.array([radius, 0, 0])
+start_position = center - np.array([radius, 0, 0])
 start_rpy = [-3.1416, 0, -1.5708]
 # Initial point is critical to avoid running into local minimum
 q_start, _ = move_to_target(np.array([0.2, -0.6, -1.7, 0.8, 0, 0.2]), start_position, start_rpy)
@@ -58,13 +58,13 @@ print(f"joint angles: {q_start}")
 # Generate circle points
 t = np.arange(0, total_time + sample_rate, sample_rate)
 omega = 2 * np.pi / total_time
-x = center[0] + radius * np.cos(omega * t)
-y = center[1] + radius * np.sin(omega * t)
+x = center[0] + radius * np.cos(omega * t + np.pi)
+y = center[1] + radius * np.sin(omega * t + np.pi)
 z = np.full_like(t, center[2])
 
 # Calculate velocities
-dx = -radius * omega * np.sin(omega * t)
-dy = radius * omega * np.cos(omega * t)
+dx = -radius * omega * np.sin(omega * t + np.pi)
+dy = radius * omega * np.cos(omega * t + np.pi)
 dz = np.zeros_like(t)
 
 # Calculate joint angles and velocities
