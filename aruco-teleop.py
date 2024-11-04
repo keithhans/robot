@@ -128,7 +128,7 @@ def control_thread():
         
         # 计算下一次调用的延迟
         elapsed_time = time.time() - start_time
-        delay = max(0, 0.1 - elapsed_time)  # 确保至少延迟100ms
+        delay = max(0, 0.333 - elapsed_time)  # 确保至少延迟333ms
         time.sleep(delay)
         start_time = time.time()
 
@@ -298,7 +298,7 @@ def main():
         if tracking:
             # go to the target position
             new_tvec = t_target2world
-            move_tvec = new_tvec - start_tvec
+            move_tvec = (new_tvec - start_tvec) * 0.75
             new_rMat = R_target2world
             delta_r_Mat = new_rMat @ np.linalg.inv(start_rMat)
             final_r_Mat = delta_r_Mat @ origin_rMat
