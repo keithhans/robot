@@ -21,6 +21,8 @@ def velocity_to_jog_command(velocity, joint_id):
 def main():
     parser = argparse.ArgumentParser(description='Load and process trajectory data.')
     parser.add_argument('npz_file', help='Path to the NPZ file containing trajectory data')
+    parser.add_argument('-p', '--pos', action='store_true', help='Use ee position')
+
     args = parser.parse_args()
 
     try:
@@ -29,6 +31,9 @@ def main():
         start_rpy = data['start_rpy'] / np.pi * 180
         joint_velocities = data['joint_velocities']
         joint_angles = data['joint_angles']
+        x = data['x']
+        y = data['y']
+        z = data['z']
         t = data['t']
         
         print("Loaded data from:", args.npz_file)
@@ -47,21 +52,39 @@ def main():
 
     # move robot to initial position
     initial_coords = np.concatenate([start_position, start_rpy])
-    mc.send_coords(initial_coords.tolist(), 50, 1)
-    time.sleep(10)
+    coords = initial_coords.tolist()
+    mc.send_coords(coords, 50, 1)
+    time.sleep(5)
 
     print("Starting trajectory execution...")
     sample_time = t[1] - t[0]  # 采样时间间隔
+    
+    pen_down = 5 #35
 
     try:
-        for angle in joint_angles:
-            start_time = time.time()
-            print(angle)
-            mc.send_radians(angle, 50)            
-            # 等待到下一个采样时刻
-            elapsed_time = time.time() - start_time
-            if elapsed_time < sample_time:
-                time.sleep(sample_time - elapsed_time)
+        if args.pos:
+            print("pos mode")
+            for i in range(len(x)):
+                start_time = time.time()
+                coords[0] = x[i] * 1000 - pen_down
+                coords[1] = y[i] * 1000 - pen_down
+                coords[2] = z[i] * 1000 - pen_down
+                mc.send_coords(coords, 50, 1)
+                # 等待到下一个采样时刻
+                elapsed_time = time.time() - start_time
+                print(f"{elapsed_time:.3f} {coords}")
+                if elapsed_time < sample_time:
+                    time.sleep(sample_time - elapsed_time)
+        else:
+            print("angle mode")
+            for angle in joint_angles:
+                start_time = time.time()
+                mc.send_radians(angle, 50)            
+                # 等待到下一个采样时刻
+                elapsed_time = time.time() - start_time
+                print(f"{elapsed_time:.3f} {angle}")
+                if elapsed_time < sample_time:
+                    time.sleep(sample_time - elapsed_time)
             
     except KeyboardInterrupt:
         print("\nTrajectory execution interrupted by user")

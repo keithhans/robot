@@ -8,8 +8,8 @@ import time
 # Define the circle parameters
 center = np.array([0.20, 0, 0.1])
 radius = 0.03
-total_time = 20  # seconds
-sample_rate = 0.1  # 100ms
+total_time = 30  # seconds
+sample_rate = 0.033  # 33ms
 
 # Load the robot model from URDF
 urdf_filename = "mycobot_280_pi.urdf"
@@ -57,7 +57,7 @@ print(f"joint angles: {q_start}")
 
 # Generate circle points
 t = np.arange(0, total_time + sample_rate, sample_rate)
-omega = 2 * np.pi / total_time
+omega = 2 * np.pi / total_time * 3
 x = center[0] + radius * np.cos(omega * t + np.pi)
 y = center[1] + radius * np.sin(omega * t + np.pi)
 z = np.full_like(t, center[2])
@@ -227,6 +227,9 @@ np.savez(filename,
          start_rpy=start_rpy,
          joint_velocities=joint_velocities,
          joint_angles=joint_angles,
+         x=x,
+         y=y,
+         z=z,
          t=t_actual)  # 也保存时间数组以便后续使用
 
 print(f"Saved data to {filename}")
