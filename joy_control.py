@@ -92,7 +92,7 @@ joystick_continous_map = {
 }
 
 mc = MyCobot("/dev/ttyAMA0", "1000000", debug=False)
-mc.set_fresh_mode(1)
+mc.set_fresh_mode(0)
 
 context = {"running": True}
 arm_speed = 50
@@ -286,40 +286,40 @@ def continous_move():
                 print(f"continous move key:{key} value:{value} origin:{origin}")
                 # Y coord
                 if key == JoyStickContinous.LeftXAxis:
-                    mc.send_coord(2, y - value * ratio, move_speed)
+                    #mc.send_coord(2, y - value * ratio, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][1] -= value * ratio
                 # X coord
                 elif key == JoyStickContinous.LeftYAxis:
-                    mc.send_coord(1, x - value * ratio, move_speed)
+                    #mc.send_coord(1, x - value * ratio, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][0] -= value * ratio
                 # Z coord
                 elif key == JoyStickContinous.RightYAxis:
-                    mc.send_coord(3, z - value * ratio, move_speed)
+                    #mc.send_coord(3, z - value * ratio, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][2] -= value * ratio
                 elif key == JoyStickContinous.RightXAxis:
-                    mc.send_coord(6, rz - value * ratio, move_speed)
+                    #mc.send_coord(6, rz - value * ratio, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][5] -= value * ratio
                 elif key == JoyStickKey.ArrowUp:
-                    mc.send_coord(4, rx + 1, move_speed)
+                    #mc.send_coord(4, rx + 1, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][3] += 1
                 elif key == JoyStickKey.ArrowDown:
-                    mc.send_coord(4, rx - 1, move_speed)
+                    #mc.send_coord(4, rx - 1, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][3] -= 1
                 elif key == JoyStickKey.ArrowRight: # switch left & right to make it more natural
-                    mc.send_coord(5, ry - 1, move_speed)
+                    #mc.send_coord(5, ry - 1, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][4] -= 1
                 elif key == JoyStickKey.ArrowLeft:
-                    mc.send_coord(5, ry + 1, move_speed)
+                    #mc.send_coord(5, ry + 1, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][4] += 1
-                #mc.send_coords(global_states["origin"], move_speed, 1)  # path should be linear
+                mc.send_coords(global_states["origin"], move_speed, 1)  # path should be linear
 
         time.sleep(0.05)
 
