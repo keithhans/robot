@@ -273,6 +273,7 @@ def continous_move():
         else:
             origin = global_states["origin"]
         
+        moving = False
         for key, value in global_states["move_key_states"].items():
             if key in [
                 JoyStickContinous.LeftXAxis,
@@ -288,6 +289,7 @@ def continous_move():
                 now = time.time()
                 print(f"{(now-last):.3f} continous move key:{key} value:{value:.3f} origin:{origin}")
                 last = now
+                moving = True
                 # Y coord
                 if key == JoyStickContinous.LeftXAxis:
                     #mc.send_coord(2, y - value * ratio, move_speed)
@@ -323,7 +325,10 @@ def continous_move():
                     #mc.send_coord(5, ry + 1, move_speed)
                     if global_states["origin"] is not None:
                         global_states["origin"][4] += 1
-                mc.send_coords(global_states["origin"], move_speed, 1)  # path should be linear
+                
+        if moving:
+            mc.send_coords(global_states["origin"], move_speed, 1)  # path should be linear
+            moving = False
 
         time.sleep(0.01)
 
