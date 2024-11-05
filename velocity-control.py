@@ -54,20 +54,27 @@ def main():
     initial_coords = np.concatenate([start_position, start_rpy])
     coords = initial_coords.tolist()
     mc.send_coords(coords, 50, 1)
-    time.sleep(5)
+    time.sleep(2)
 
-    print("Starting trajectory execution...")
     sample_time = t[1] - t[0]  # 采样时间间隔
+    print(f"Starting trajectory execution... sample interval:{sample_time}")
+
+    pen_down = 38
     
-    pen_down = 5 #35
+    if args.pos:
+        # pen down
+        coords[2] -= pen_down
+        mc.send_coords(coords, 50, 1)
+        time.sleep(2)
+    
 
     try:
         if args.pos:
             print("pos mode")
             for i in range(len(x)):
                 start_time = time.time()
-                coords[0] = x[i] * 1000 - pen_down
-                coords[1] = y[i] * 1000 - pen_down
+                coords[0] = x[i] * 1000 
+                coords[1] = y[i] * 1000
                 coords[2] = z[i] * 1000 - pen_down
                 mc.send_coords(coords, 50, 1)
                 # 等待到下一个采样时刻
@@ -75,6 +82,7 @@ def main():
                 print(f"{elapsed_time:.3f} {coords}")
                 if elapsed_time < sample_time:
                     time.sleep(sample_time - elapsed_time)
+            mc.send_coord(3, coords[2] + pen_down, 50)  # pen up
         else:
             print("angle mode")
             for angle in joint_angles:
