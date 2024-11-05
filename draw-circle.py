@@ -8,7 +8,7 @@ import time
 # Define the circle parameters
 center = np.array([0.20, 0, 0.1])
 radius = 0.03
-total_time = 30  # seconds
+total_time = 10  # seconds
 sample_rate = 0.033  # 33ms
 
 # Load the robot model from URDF
@@ -57,7 +57,7 @@ print(f"joint angles: {q_start}")
 
 # Generate circle points
 t = np.arange(0, total_time + sample_rate, sample_rate)
-omega = 2 * np.pi / total_time * 3
+omega = 2 * np.pi / total_time * 2
 x = center[0] + radius * np.cos(omega * t + np.pi)
 y = center[1] + radius * np.sin(omega * t + np.pi)
 z = np.full_like(t, center[2])
