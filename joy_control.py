@@ -253,8 +253,8 @@ def dispatch_key_action(key: T.Union[JoyStickKey, JoyStickContinous], value: flo
 
 def continous_move():
     global global_states
-    move_speed = 20
-    ratio = 1
+    move_speed = 100
+    ratio = 0.5
 
     not_zero = lambda x: x < -0.1 or x > 0.1
     is_zero = lambda x: -0.1 < x < 0.1
@@ -292,12 +292,12 @@ def continous_move():
                 if key == JoyStickContinous.LeftXAxis:
                     #mc.send_coord(2, y - value * ratio, move_speed)
                     if global_states["origin"] is not None:
-                        global_states["origin"][1] -= value * ratio
+                        global_states["origin"][1] -= value * ratio * 2
                 # X coord
                 elif key == JoyStickContinous.LeftYAxis:
                     #mc.send_coord(1, x - value * ratio, move_speed)
                     if global_states["origin"] is not None:
-                        global_states["origin"][0] -= value * ratio
+                        global_states["origin"][0] -= value * ratio * 2
                 # Z coord
                 elif key == JoyStickContinous.RightYAxis:
                     #mc.send_coord(3, z - value * ratio, move_speed)
