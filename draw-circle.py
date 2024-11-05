@@ -6,7 +6,7 @@ import datetime
 import time
 
 # Define the circle parameters
-center = np.array([0.20, 0, 0.1])
+center = np.array([0.20, -0.04, 0.07])
 radius = 0.03
 total_time = 10  # seconds
 sample_rate = 0.033  # 33ms
