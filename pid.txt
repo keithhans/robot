@@ -1,0 +1,11 @@
+>>> [mc.get_servo_data(i, 21) for i in range(1, 7)]
+[16, 24, 24, 25, 25, 25]
+>>> [mc.get_servo_data(i, 22) for i in range(1, 7)]
+[8, 8, 8, 25, 25, 25]
+>>> [mc.get_servo_data(i, 23) for i in range(1, 7)]
+[4, 3, 2, 1, 1, 1]
+>>> [mc.get_servo_data(i, 37) for i in range(1, 7)]
+[20, 20, 10, 10, 10, 10]
+>>> [mc.get_servo_data(i, 39) for i in range(1, 7)]
+[75, 75, 100, 100, 200, 200]
+
