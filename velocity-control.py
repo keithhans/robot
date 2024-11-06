@@ -20,9 +20,10 @@ def velocity_to_jog_command(velocity, joint_id):
     return direction, speed
 
 def plot_angle_comparison(target_angles, actual_angles):
-    """绘制目标角度和实际角度的对比图，忽略 None 值"""
-    # 过滤掉 None 值
-    valid_pairs = [(target, actual) for target, actual in zip(target_angles, actual_angles) if actual is not None]
+    """绘制目标角度和实际角度的对比图，忽略 None 值和大于 3.14 的值"""
+    # 过滤掉 None 值和大于 3.14 的值
+    valid_pairs = [(target, actual) for target, actual in zip(target_angles, actual_angles) 
+                  if actual is not None and all(abs(a) <= 3.14 for a in actual)]
     if not valid_pairs:  # 如果没有有效数据
         print("No valid angle data for plotting")
         return
@@ -49,7 +50,10 @@ def plot_angle_comparison(target_angles, actual_angles):
         axs[row, col].grid(True)
     
     plt.tight_layout()
-    plt.show()
+    # 保存图像到文件
+    timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
+    plt.savefig(f'angle_comparison_{timestamp}.png')
+    plt.close()  # 关闭图形，不显示
 
 def main():
     parser = argparse.ArgumentParser(description='Load and process trajectory data.')
