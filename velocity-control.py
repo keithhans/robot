@@ -19,6 +19,60 @@ def velocity_to_jog_command(velocity, joint_id):
     speed = int(min(100, max(1, abs(velocity) / MAX_VELOCITY * 100)))
     return direction, speed
 
+def calculate_tracking_metrics(target_angles, actual_angles):
+    """计算跟踪效果的统计指标"""
+    # 过滤掉 None 值和大于 3.14 的值
+    valid_pairs = [(target, actual) for target, actual in zip(target_angles, actual_angles) 
+                  if actual is not None and all(abs(a) <= 3.14 for a in actual)]
+    if not valid_pairs:
+        print("No valid data for metrics calculation")
+        return
+    
+    valid_targets, valid_actuals = zip(*valid_pairs)
+    valid_targets = np.array(valid_targets)
+    valid_actuals = np.array(valid_actuals)
+    
+    # 计算每个关节的指标
+    metrics = {}
+    for joint in range(6):
+        target = valid_targets[:, joint]
+        actual = valid_actuals[:, joint]
+        error = actual - target
+        
+        metrics[f'joint_{joint+1}'] = {
+            'mean_error': np.mean(np.abs(error)),  # 平均绝对误差
+            'max_error': np.max(np.abs(error)),    # 最大绝对误差
+            'rmse': np.sqrt(np.mean(error**2)),    # 均方根误差
+            'std_error': np.std(error),            # 误差标准差
+            'tracking_ratio': len(valid_pairs) / len(target_angles) * 100  # 有效数据比例
+        }
+    
+    # 保存指标到文件
+    timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
+    with open(f'tracking_metrics_{timestamp}.txt', 'w') as f:
+        f.write("Tracking Performance Metrics:\n")
+        f.write("===========================\n\n")
+        
+        for joint, joint_metrics in metrics.items():
+            f.write(f"{joint}:\n")
+            f.write(f"  Mean Absolute Error: {joint_metrics['mean_error']:.4f} rad\n")
+            f.write(f"  Max Absolute Error: {joint_metrics['max_error']:.4f} rad\n")
+            f.write(f"  RMSE: {joint_metrics['rmse']:.4f} rad\n")
+            f.write(f"  Standard Deviation: {joint_metrics['std_error']:.4f} rad\n")
+            f.write(f"  Valid Data Ratio: {joint_metrics['tracking_ratio']:.1f}%\n\n")
+        
+        # 计算总体指标
+        total_mean_error = np.mean([m['mean_error'] for m in metrics.values()])
+        total_max_error = np.max([m['max_error'] for m in metrics.values()])
+        total_rmse = np.sqrt(np.mean([m['rmse']**2 for m in metrics.values()]))
+        
+        f.write("Overall Performance:\n")
+        f.write(f"  Average Mean Error: {total_mean_error:.4f} rad\n")
+        f.write(f"  Maximum Error: {total_max_error:.4f} rad\n")
+        f.write(f"  Overall RMSE: {total_rmse:.4f} rad\n")
+    
+    return metrics
+
 def plot_angle_comparison(target_angles, actual_angles):
     """绘制目标角度和实际角度的对比图，忽略 None 值和大于 3.14 的值"""
     # 过滤掉 None 值和大于 3.14 的值
@@ -48,6 +102,18 @@ def plot_angle_comparison(target_angles, actual_angles):
         axs[row, col].set_ylabel('Angle (rad)')
         axs[row, col].legend()
         axs[row, col].grid(True)
+    
+    # 在图上添加统计指标
+    metrics = calculate_tracking_metrics(target_angles, actual_angles)
+    for joint in range(6):
+        row = joint // 2
+        col = joint % 2
+        joint_metrics = metrics[f'joint_{joint+1}']
+        stats_text = f"RMSE: {joint_metrics['rmse']:.4f}\nMean Error: {joint_metrics['mean_error']:.4f}"
+        axs[row, col].text(0.02, 0.98, stats_text,
+                          transform=axs[row, col].transAxes,
+                          verticalalignment='top',
+                          bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
     plt.tight_layout()
     # 保存图像到文件
@@ -143,7 +209,8 @@ def main():
                 if elapsed_time < sample_time:
                     time.sleep(sample_time - elapsed_time)
             
-            # 在轨迹执行完成后绘制角度对比图
+            # 计算和绘制跟踪效果
+            metrics = calculate_tracking_metrics(joint_angles, actual_angles)
             plot_angle_comparison(joint_angles, actual_angles)
             
     except KeyboardInterrupt:
