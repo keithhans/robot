@@ -8,7 +8,7 @@ def generate_sine_trajectory(duration, sample_time=0.03):
     """生成正弦轨迹"""
     t = np.arange(0, duration, sample_time)
     # 频率为 0.2Hz，幅度为 45 度（约 0.785 弧度）
-    angles = np.pi/4 * np.sin(2 * np.pi * 0.2 * t)  
+    angles = np.pi/4 / 3 * np.sin(2 * np.pi * 0.2 * t)  
     return t, angles
 
 def plot_tracking_results(joint_id, sample_time, times, target_angles, actual_angles):
