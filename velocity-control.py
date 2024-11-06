@@ -54,7 +54,7 @@ def main():
     initial_coords = np.concatenate([start_position, start_rpy])
     coords = initial_coords.tolist()
     mc.send_coords(coords, 50, 1)
-    time.sleep(2)
+    time.sleep(5)
 
     sample_time = t[1] - t[0]  # 采样时间间隔
     print(f"Starting trajectory execution... sample interval:{sample_time}")
@@ -88,9 +88,16 @@ def main():
             for angle in joint_angles:
                 start_time = time.time()
                 mc.send_radians(angle, 50)            
+                time.sleep(0.01)
+                try:
+                    current = mc.get_radians()
+                except TypeError as e:
+                    print(f"{e}")
+                
                 # 等待到下一个采样时刻
                 elapsed_time = time.time() - start_time
-                print(f"{elapsed_time:.3f} {angle}")
+                print(f"{elapsed_time:.3f} target:{angle} current:{current}")
+                
                 if elapsed_time < sample_time:
                     time.sleep(sample_time - elapsed_time)
             
