@@ -2,6 +2,7 @@ import numpy as np
 import argparse
 import time
 from pymycobot import MyCobot
+import matplotlib.pyplot as plt
 
 def velocity_to_jog_command(velocity, joint_id):
     """Convert joint velocity to direction and speed for jog_angle command"""
@@ -17,6 +18,38 @@ def velocity_to_jog_command(velocity, joint_id):
     MAX_VELOCITY = np.pi
     speed = int(min(100, max(1, abs(velocity) / MAX_VELOCITY * 100)))
     return direction, speed
+
+def plot_angle_comparison(target_angles, actual_angles):
+    """绘制目标角度和实际角度的对比图，忽略 None 值"""
+    # 过滤掉 None 值
+    valid_pairs = [(target, actual) for target, actual in zip(target_angles, actual_angles) if actual is not None]
+    if not valid_pairs:  # 如果没有有效数据
+        print("No valid angle data for plotting")
+        return
+        
+    # 分离有效的目标角度和实际角度
+    valid_targets, valid_actuals = zip(*valid_pairs)
+    valid_targets = np.array(valid_targets)
+    valid_actuals = np.array(valid_actuals)
+    
+    # 创建6个子图，每个关节一个
+    fig, axs = plt.subplots(3, 2, figsize=(15, 15))
+    fig.suptitle('Joint Angles: Target vs Actual')
+    
+    for joint in range(6):
+        row = joint // 2
+        col = joint % 2
+        
+        axs[row, col].plot(valid_targets[:, joint], 'b-', label='Target', alpha=0.7)
+        axs[row, col].plot(valid_actuals[:, joint], 'r--', label='Actual', alpha=0.7)
+        axs[row, col].set_title(f'Joint {joint+1}')
+        axs[row, col].set_xlabel('Sample')
+        axs[row, col].set_ylabel('Angle (rad)')
+        axs[row, col].legend()
+        axs[row, col].grid(True)
+    
+    plt.tight_layout()
+    plt.show()
 
 def main():
     parser = argparse.ArgumentParser(description='Load and process trajectory data.')
@@ -85,26 +118,34 @@ def main():
             mc.send_coord(3, coords[2] + pen_down, 50)  # pen up
         else:
             print("angle mode")
+            actual_angles = []  # 存储实际角度
+            
             for angle in joint_angles:
                 start_time = time.time()
                 mc.send_radians(angle, 50)            
                 time.sleep(0.01)
+                
                 try:
                     current = mc.get_radians()
                 except TypeError as e:
                     print(f"{e}")
+                    current = None
                 
-                # 等待到下一个采样时刻
+                actual_angles.append(current)
+                
                 elapsed_time = time.time() - start_time
                 print(f"{elapsed_time:.3f} target:{angle} current:{current}")
                 
                 if elapsed_time < sample_time:
                     time.sleep(sample_time - elapsed_time)
             
+            # 在轨迹执行完成后绘制角度对比图
+            plot_angle_comparison(joint_angles, actual_angles)
+            
     except KeyboardInterrupt:
         print("\nTrajectory execution interrupted by user")
-
-    print("Trajectory execution completed")
+    finally:
+        print("Trajectory execution completed")
 
 if __name__ == "__main__":
     main()
