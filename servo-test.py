@@ -11,7 +11,7 @@ def generate_sine_trajectory(duration, sample_time=0.03):
     angles = np.pi/4 * np.sin(2 * np.pi * 0.2 * t)  
     return t, angles
 
-def plot_tracking_results(times, target_angles, actual_angles):
+def plot_tracking_results(joint_id, sample_time, times, target_angles, actual_angles):
     """绘制跟踪结果"""
     # 过滤掉 None 值和异常值
     valid_data = [(t, target, actual) for t, target, actual in zip(times, target_angles, actual_angles)
@@ -62,7 +62,7 @@ def plot_tracking_results(times, target_angles, actual_angles):
     
     # 保存图像
     timestamp = time.strftime('%Y-%m-%d-%H-%M-%S')
-    plt.savefig(f'servo_test_joint_{args.joint}_{timestamp}.png')
+    plt.savefig(f'servo_test_joint_{joint_id}_{sample_time}_{timestamp}.png')
     plt.close()
 
 def main():
@@ -78,7 +78,8 @@ def main():
     mc.set_fresh_mode(0)
     
     # 生成轨迹
-    times, target_angles = generate_sine_trajectory(args.duration)
+    sample_time = 0.02
+    times, target_angles = generate_sine_trajectory(args.duration, sample_time)
     actual_angles = []
     recorded_times = []
     
@@ -99,10 +100,11 @@ def main():
             angles[args.joint - 1] = angle
             
             # 发送角度命令
-            mc.send_radians(angles, 50)
+            mc.send_radians(angles, 100)
             
             # 读取实际角度
             try:
+                time.sleep(0.01)
                 current_angles = mc.get_radians()
                 if current_angles is not None:
                     actual_angle = current_angles[args.joint - 1]
@@ -117,11 +119,11 @@ def main():
             
             # 等待到下一个采样时刻
             elapsed = time.time() - loop_start
-            if elapsed < 0.03:
-                time.sleep(0.03 - elapsed)
+            if elapsed < sample_time:
+                time.sleep(sample_time - elapsed)
             
             # 打印进度
-            print(f"Time: {recorded_times[-1]:.2f}s, Target: {angle:.4f}, Actual: {actual_angle}")
+            print(f"Time: {recorded_times[-1]:.3f}s, Target: {angle:.4f}, Actual: {actual_angle}")
         
     except KeyboardInterrupt:
         print("\nTest interrupted by user")
@@ -133,7 +135,7 @@ def main():
         mc.send_radians([0, 0, 0, 0, 0, 0], 50)
         
         # 绘制结果
-        plot_tracking_results(recorded_times, target_angles, actual_angles)
+        plot_tracking_results(args.joint, sample_time, recorded_times, target_angles, actual_angles)
         
         print("Test completed")
 
