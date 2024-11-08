@@ -6,7 +6,9 @@ import datetime
 import time
 
 # Define the circle parameters
-center = np.array([0.20, -0.04, 0.07])
+#center = np.array([0.20, -0.04, 0.07])
+center = np.array([0.20, -0.04, 0.1])
+
 radius = 0.03
 total_time = 10  # seconds
 sample_rate = 0.033  # 33ms
@@ -22,7 +24,7 @@ IT_MAX = 1000
 DT = 1e-1
 damp = 1e-12
 
-def move_to_target(q_init, target_position, target_rpy=None):
+def ik(q_init, target_position, target_rpy=None):
     if target_rpy is None:
         target_rpy = [-3.1416, 0, -1.5708]  # Default RPY if not specified
     target_rotation = pin.utils.rpyToMatrix(target_rpy[0], target_rpy[1], target_rpy[2])
@@ -48,7 +50,7 @@ def move_to_target(q_init, target_position, target_rpy=None):
 start_position = center - np.array([radius, 0, 0])
 start_rpy = [-3.1416, 0, -1.5708]
 # Initial point is critical to avoid running into local minimum
-q_start, _ = move_to_target(np.array([0.2, -0.6, -1.7, 0.8, 0, 0.2]), start_position, start_rpy)
+q_start, _ = ik(np.array([0.2, -0.6, -1.7, 0.8, 0, 0.2]), start_position, start_rpy)
 
 print("Moved to start position.")
 pin.forwardKinematics(model, data, q_start)
@@ -80,8 +82,8 @@ initial_rpy = pin.rpy.matrixToRpy(initial_rotation)  # 将旋转矩阵转换为 
 for i in range(len(t)):
     pos_desired = np.array([x[i], y[i], z[i]])
     
-    # Use move_to_target to get joint angles, maintaining initial orientation
-    q, converged = move_to_target(q, pos_desired, initial_rpy)  # 使用 RPY 角度而不是旋转矩阵
+    # Use ik to get joint angles, maintaining initial orientation
+    q, converged = ik(q, pos_desired, initial_rpy)  # 使用 RPY 角度而不是旋转矩阵
     
     if not converged:
         print(f"Skipping point at t = {t[i]} pos = {pos_desired}")
