@@ -128,7 +128,7 @@ def control_thread():
         
         # 计算下一次调用的延迟
         elapsed_time = time.time() - start_time
-        delay = max(0, 0.333 - elapsed_time)  # 确保至少延迟333ms
+        delay = max(0, 0.100 - elapsed_time)  # 确保至少延迟100ms
         time.sleep(delay)
         start_time = time.time()
 
@@ -205,8 +205,8 @@ def main():
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        elapsed_time = time.time() - start_time
-        # print(f"image captured. time elapsed: {elapsed_time:.3f}s")
+        capture_time = time.time() - start_time
+        # print(f"image captured. time elapsed: {capture_time:.3f}s")
 
         # Detect markers in the frame
         marker_corners, marker_ids, rejected_candidates = detector.detectMarkers(gray)
@@ -252,7 +252,7 @@ def main():
         end_time = time.time()
         elapsed_time = end_time - start_time
         total_time = end_time - last_time
-        text = f"time elapsed: {elapsed_time:.3f}s  total time:{total_time:.3f}s"
+        text = f"capture time: {capture_time:.3f}s  total time:{total_time:.3f}s"
         last_time = end_time
 
 
