@@ -8,18 +8,18 @@ import traceback
 from scipy.interpolate import griddata
 
 # 机械臂的工作范围
-ARM_X_MIN = 150
+ARM_X_MIN = 160
 ARM_X_MAX = 250
-ARM_Y_MIN = -100
-ARM_Y_MAX = 100
-ARM_Z_DOWN = 80  # 假设Z轴高度固定
-STEP = 20  # 扫描间隔
+ARM_Y_MIN = -80
+ARM_Y_MAX = 80
+ARM_Z_DOWN = 90  # 假设Z轴高度固定
+STEP = 10  # 扫描间隔
 
 def generate_scan_points():
     """生成扫描点的坐标"""
     points = []
-    for x in range(ARM_X_MIN, ARM_X_MAX + 1, STEP):
-        for y in range(ARM_Y_MIN, ARM_Y_MAX + 1, STEP):
+    for y in range(ARM_Y_MIN, ARM_Y_MAX + 1, STEP):
+        for x in range(ARM_X_MIN, ARM_X_MAX + 1, STEP):
             points.append([x, y, ARM_Z_DOWN, -175, 0, -90])  # 固定姿态
     return np.array(points)
 
@@ -316,7 +316,7 @@ def main():
             print(f"Target position: {point[:3]}")
             
             # 移动到目标位置
-            mc.send_coords(point.tolist(), 50, 0)
+            mc.send_coords(point.tolist(), 50, 1)
             time.sleep(3)  # 等待机械臂稳定
             
             # 获取实际位置
