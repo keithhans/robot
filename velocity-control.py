@@ -160,9 +160,10 @@ def main():
     time.sleep(5)
 
     sample_time = t[1] - t[0]  # 采样时间间隔
+    sample_time = 0.20
     print(f"Starting trajectory execution... sample interval:{sample_time}")
 
-    pen_down = 38
+    pen_down = 0 #38
     
     if args.pos:
         # pen down
@@ -193,7 +194,7 @@ def main():
             for angle in joint_angles:
                 start_time = time.time()
                 mc.send_radians(angle, 50)            
-                time.sleep(0.01)
+                time.sleep(0.18)
                 
                 try:
                     current = mc.get_radians()
