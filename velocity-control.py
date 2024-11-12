@@ -163,7 +163,7 @@ def main():
     sample_time = 0.20
     print(f"Starting trajectory execution... sample interval:{sample_time}")
 
-    pen_down = 0 #38
+    pen_down = 49
     
     if args.pos:
         # pen down
