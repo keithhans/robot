@@ -330,7 +330,7 @@ def continous_move():
             mc.send_coords(global_states["origin"], move_speed, 1)  # path should be linear
             moving = False
 
-        time.sleep(0.01)
+        #time.sleep(0.01)
 
 
 def dispatch_continous_key_action(key: JoyStickContinous, value: float):
