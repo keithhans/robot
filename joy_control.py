@@ -236,11 +236,11 @@ def dispatch_key_action(key: T.Union[JoyStickKey, JoyStickContinous], value: flo
 
     # 工具
     if key == JoyStickKey.RLeftKey:
-        global_states["gripper_val"] = min(100, global_states["gripper_val"] + 5)
+        global_states["gripper_val"] = min(100, global_states["gripper_val"] + 2)
         mc.set_gripper_value(global_states["gripper_val"], 50)
         time.sleep(0.5)
     elif key == JoyStickKey.RTopKey:
-        global_states["gripper_val"] = max(20, global_states["gripper_val"] - 5) # set min to 20
+        global_states["gripper_val"] = max(20, global_states["gripper_val"] - 2) # set min to 20
         mc.set_gripper_value(global_states["gripper_val"], 50)
         time.sleep(0.5)
     elif key == JoyStickKey.RBottomKey:
