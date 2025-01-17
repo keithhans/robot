@@ -129,7 +129,7 @@ class MycobotServer(object):
                             self.write(command)
                             # if command[3] in has_return:
                             res = b'\xff'
-                            if command[3] not in [0x25, 0x67]:
+                            if command[3] not in [0x22, 0x25, 0x67]:    # otherwise don't wait
                                 res = self.read(command)
                             self.logger.info("return datas: {}".format([hex(v) for v in res]))
 
